@@ -1,0 +1,73 @@
+# Example apps.yaml configuration for Heaty.
+# Simply copy this, paste it into your apps.yaml and adapt as needed.
+
+heaty:
+  module: heaty
+  class: Heaty
+
+  # This switch can be used to turn off all rooms (e.g. for vacation time).
+  master_switch: input_boolean.heating_master
+  # Temperature that should be set when heatings are turned off.
+  # 4 °C is recommended to protect against frost-induced damage.
+  # (optional, default: 4)
+  off_temp: 4
+
+  rooms:
+
+    # Create such a block for every room you want to control.
+    living:
+      # An alternative friendly name to display in logs.
+      # (optional)
+      friendly_name: Living Room
+
+      # If turned off, this switch disables the scheduled control
+      # for this room.
+      # (optional)
+      schedule_switch: input_boolean.heating_schedule_living
+
+      # All thermostats of this room go here.
+      thermostats:
+        climate.living1
+          # Delta that is added to the temperature value sent to this
+          # thermostat.
+          # (optional)
+          delta: 2
+
+        climate.living2:
+          # You might want to use an alternative service that receives
+          # the temperature value.
+          # (optional, default: climate/set_temperature)
+          service: climate/set_temperature
+          # (optional, default: temperature)
+          service_attribute: temperature
+
+      # Schedule for this room.
+      # If you don't want to have this room be controlled by a schedule,
+      # simply omit the schedule or leave it empty.
+      # (optional)
+      schedule:
+
+      # A schedule consists of a number of rules, each defining:
+      # - a set of weekdays and
+      # - a set of daytimes and corresponding temperatures.
+      # For each rule, timers are created that set the desired temperatures
+      # at the specified times on all weekdays the rule is valid on.
+      #
+      # This means, you don't specify time ranges and assign
+      # temperatures to them. You rather provide times at which
+      # a temperature change should happen.
+      #
+      # The different parts of a rule have to be separated by semicolons.
+      # Any whitespace contained in a rule is ignored.
+
+      # From Monday to Friday, set temperature to 20 °C at 7.45 AM,
+      # and to 16 °C at 11.00 PM.
+      - 1-5;  07:45 = 20;  23:00 = 16
+
+      # On weekends, set temperature to 20 °C at 8.15 AM,
+      # and to 16 °C at 11.30 PM.
+      - 6-7;  8:15 = 20;  23:30 = 16
+
+      # On Mondays and Thursdays, additionally set temperature to 22 °C
+      #at 6.00 PM.
+      - 1,4; 18:00=22
