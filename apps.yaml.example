@@ -2,14 +2,20 @@
 # Simply copy this, paste it into your apps.yaml and adapt as needed.
 
 heaty:
+  # Obligatory settings that tell appdaemon where to find the app.
+  # You shouldn't need to change these two.
   module: heaty
   class: Heaty
 
-  # This switch can be used to turn off all rooms (e.g. for vacation time).
+  # This switch can be used to turn off all rooms (e.g. for vacation times).
+  # You may use any switch that has the states "on" and "off".
   master_switch: input_boolean.heating_master
+
   # Temperature that should be set when heatings are turned off.
   # 4 °C is recommended to protect against frost-induced damage.
-  # (optional, default: 4)
+  # A value of "off" will set the thermostat's operation mode
+  # to off explicitly.
+  # (optional, default: off)
   off_temp: 4
 
   rooms:
@@ -22,24 +28,35 @@ heaty:
 
       # If turned off, this switch disables the scheduled control
       # for this room.
+      # You may use any switch that has the states "on" and "off".
       # (optional)
       schedule_switch: input_boolean.heating_schedule_living
 
       # All thermostats of this room go here.
       thermostats:
+
         climate.living1
           # Delta that is added to the temperature value sent to this
           # thermostat.
           # (optional)
           delta: 2
 
-        climate.living2:
+          # You might want to use an alternative service that receives
+          # the operation mode value.
+          # (optional, default: climate/set_operation_mode)
+          opmode_service: climate/set_operation_mode
+          # (optional, default: operation_mode)
+          opmode_service_attr: operation_mode
+
           # You might want to use an alternative service that receives
           # the temperature value.
           # (optional, default: climate/set_temperature)
-          service: climate/set_temperature
+          temp_service: climate/set_temperature
           # (optional, default: temperature)
-          service_attribute: temperature
+          temp_service_attr: temperature
+
+        climate.living_2:
+          # ...
 
       # Schedule for this room.
       # If you don't want to have this room be controlled by a schedule,

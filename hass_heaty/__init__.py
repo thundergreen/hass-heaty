@@ -12,8 +12,12 @@ except ImportError:
 __version__ = "0.1.0"
 
 
-DEFAULT_SERVICE = "climate/set_temperature"
-DEFAULT_SERVICE_ATTR = "temperature"
+DEFAULT_OPMODE_HEAT = "Heat"
+DEFAULT_OPMODE_OFF = "Off"
+DEFAULT_OPMODE_SERVICE = "climate/set_operation_mode"
+DEFAULT_OPMODE_SERVICE_ATTR = "operation_mode"
+DEFAULT_TEMP_SERVICE = "climate/set_temperature"
+DEFAULT_TEMP_SERVICE_ATTR = "temperature"
 
 ALL_WEEKDAYS = set(range(1, 8))
 RANGE_PATTERN = re.compile(r"^(\d+)\-(\d+)$")
@@ -91,10 +95,29 @@ class Heaty(appapi.AppDaemon):
             return
 
         for th_name, th in room["thermostats"].items():
-            value = target_temp + th["delta"]
-            self.log("--> Setting {} to {}.".format(th_name, value))
-            attrs = {"entity_id":th_name, th["service_attr"]:value}
-            self.call_service(th["service"], **attrs)
+            if target_temp == "off":
+                value = None
+                opmode = th["opmode_off"]
+            else:
+                value = target_temp + th["delta"]
+                if th["min_temp"] is not None and value < th["min_temp"]:
+                    opmode = th["opmode_off"]
+                else:
+                    opmode = th["opmode_heat"]
+
+            self.log("--> Setting {}: {}={}, {}={}.".format(
+                th_name,
+                th["temp_service_attr"],
+                value if value is not None else "unset",
+                th["opmode_service_attr"],
+                opmode))
+            attrs = {"entity_id":th_name,
+                     th["opmode_service_attr"]:opmode}
+            self.call_service(th["opmode_service"], **attrs)
+            if value is not None:
+                attrs = {"entity_id":th_name,
+                         th["temp_service_attr"]:float(value)}
+                self.call_service(th["temp_service"], **attrs)
 
     def set_scheduled_temps(self, room_names=None):
         """Sets the temperatures that are configured for the current time
@@ -170,7 +193,10 @@ class Heaty(appapi.AppDaemon):
         if master_switch is not None:
             cfg["master_switch"] = str(master_switch)
 
-        cfg["off_temp"] = int(self.args.get("off_temp", 4))
+        off_temp = str(self.args.get("off_temp", "off")).lower()
+        if off_temp != "off":
+            off_temp = int(off_temp)
+        cfg["off_temp"] = off_temp
 
         rooms = self.args.get("rooms", {})
         assert isinstance(rooms, dict)
@@ -194,10 +220,22 @@ class Heaty(appapi.AppDaemon):
                 assert isinstance(th_data, dict)
                 th = {}
                 th["delta"] = int(th_data.get("delta", 0))
-                cfg["rooms"][room_name]["thermostats"][th_name] = th
-                th["service"] = str(th_data.get("service", DEFAULT_SERVICE))
-                th["service_attr"] = str(th_data.get("service_attr",
-                    DEFAULT_SERVICE_ATTR))
+                min_temp = th_data.get("min_temp")
+                if min_temp is not None:
+                    min_temp = int(min_temp)
+                th["min_temp"] = min_temp
+                th["opmode_heat"] = str(th_data.get("opmode_heat",
+                    DEFAULT_OPMODE_HEAT))
+                th["opmode_off"] = str(th_data.get("opmode_off",
+                    DEFAULT_OPMODE_OFF))
+                th["opmode_service"] = str(th_data.get("opmode_service",
+                    DEFAULT_OPMODE_SERVICE))
+                th["opmode_service_attr"] = str(th_data.get(
+                    "opmode_service_attr", DEFAULT_OPMODE_SERVICE_ATTR))
+                th["temp_service"] = str(th_data.get("temp_service",
+                    DEFAULT_TEMP_SERVICE))
+                th["temp_service_attr"] = str(th_data.get(
+                    "temp_service_attr", DEFAULT_TEMP_SERVICE_ATTR))
                 cfg["rooms"][room_name]["thermostats"][th_name] = th
 
             schedule = room.get("schedule", [])
