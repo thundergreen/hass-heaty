@@ -30,17 +30,17 @@ class Heaty(appapi.AppDaemon):
            callbacks and sets temperatures in all rooms according to
            the configured schedule."""
 
-        self.log("<-> Heaty v{} initialization started.".format(__version__))
+        self.log("--- Heaty v{} initialization started.".format(__version__))
 
         self.parse_config()
 
-        self.log("<-> Creating schedule timers.")
+        self.log("--- Creating schedule timers.")
         for room_name, room in self.cfg["rooms"].items():
             for index, slot in enumerate(room["schedule"]):
                 self.run_daily(self.schedule_cb, slot[1],
                         room_name=room_name, slot_index=index)
 
-        self.log("<-> Registering master/schedule switch state listeners.")
+        self.log("--- Registering master/schedule switch state listeners.")
         master_switch = self.cfg["master_switch"]
         if master_switch:
             self.listen_state(self.master_switch_cb, master_switch)
@@ -50,13 +50,14 @@ class Heaty(appapi.AppDaemon):
                 self.listen_state(self.schedule_switch_cb, schedule_switch,
                         room_name=room_name)
 
-        self.log("<-> Master switch is {}."
-                .format("on" if self.master_switch_enabled() else "off"))
+        if self.master_switch_enabled():
+            self.log("--- Setting initial temperatures.")
+            for room_name in self.cfg["rooms"]:
+                self.set_scheduled_temp(room_name)
+        else:
+            self.log("--- Master switch is off, setting no initial values.")
 
-        self.log("<-> Setting initial temperatures.")
-        self.set_scheduled_temps()
-
-        self.log("<-> Initialization done.")
+        self.log("--- Initialization done.")
 
     def schedule_cb(self, kwargs):
         """Is called whenever a schedule timer fires."""
@@ -72,7 +73,21 @@ class Heaty(appapi.AppDaemon):
     def master_switch_cb(self, entity, attr, old, new, kwargs):
         """Is called when the master switch is toggled."""
         self.log("<-- Master switch turned {}.".format(new))
-        self.set_scheduled_temps()
+        for room_name, room in self.cfg["rooms"].items():
+            schedule_switch = room["schedule_switch"]
+            if new == "on":
+                if schedule_switch and \
+                   self.cfg["master_controls_schedule_switches"] and \
+                   not self.schedule_switch_enabled(room_name):
+                    self.log("--> Turning schedule switch for {} on."
+                            .format(room["friendly_name"]))
+                    # This will automatically invoke a call to
+                    # set_scheduled_temp by the schedule_switch_cb.
+                    self.turn_on(schedule_switch)
+                else:
+                    self.set_scheduled_temp(room_name)
+            else:
+                self.set_temp(room_name, self.cfg["off_temp"], auto=False)
 
     def schedule_switch_cb(self, entity, attr, old, new, kwargs):
         """Is called when a room's schedule switch is toggled."""
@@ -80,7 +95,7 @@ class Heaty(appapi.AppDaemon):
         self.log("<-- Schedule switch for {} turned {}."
                 .format(self.cfg["rooms"][room_name]["friendly_name"], new))
         if new == "on" and self.master_switch_enabled():
-            self.set_scheduled_temps([room_name])
+            self.set_scheduled_temp(room_name)
 
     def set_temp(self, room_name, target_temp, auto=False):
         """Sets the given target temperature for all thermostats in the
@@ -94,6 +109,10 @@ class Heaty(appapi.AppDaemon):
            not self.schedule_switch_enabled(room_name)):
             return
 
+        self.log("--> Setting temperature in {} to {}  [{}]".format(
+                room["friendly_name"], target_temp,
+                "scheduled" if auto else "manual"))
+
         for th_name, th in room["thermostats"].items():
             if target_temp == "off":
                 value = None
@@ -105,7 +124,7 @@ class Heaty(appapi.AppDaemon):
                 else:
                     opmode = th["opmode_heat"]
 
-            self.log("--> Setting {}: {}={}, {}={}.".format(
+            self.log("--> Setting {}: {}={}, {}={}".format(
                 th_name,
                 th["temp_service_attr"],
                 value if value is not None else "unset",
@@ -119,50 +138,40 @@ class Heaty(appapi.AppDaemon):
                          th["temp_service_attr"]:float(value)}
                 self.call_service(th["temp_service"], **attrs)
 
-    def set_scheduled_temps(self, room_names=None):
-        """Sets the temperatures that are configured for the current time
-           in the given rooms. If room_names is None, all rooms will be
-           processed. If the master switch is turned off, this method will
-           set the configured off_temp."""
+    def set_scheduled_temp(self, room_name):
+        """Sets the temperature that is configured for the current time
+           in the given room. If the master or schedule switch is
+           turned off, this won't do anything."""
 
-        if room_names is None:
-            room_names = self.cfg["rooms"].keys()
+        room = self.cfg["rooms"][room_name]
 
-        for room_name in room_names:
-            room = self.cfg["rooms"][room_name]
+        if not self.master_switch_enabled() or \
+           not self.schedule_switch_enabled(room_name):
+            return
 
-            if not self.master_switch_enabled():
-                self.set_temp(room_name, self.cfg["off_temp"], auto=False)
-                continue
-            if not self.schedule_switch_enabled(room_name):
-                continue
+        now = datetime.datetime.now()
+        weekday = now.isoweekday()
+        current_time = now.time()
+        _time = current_time
+        checked_weekdays = set()
+        found_slot = None
 
-            self.log("<-> Determining scheduled temperature for {}."
-                    .format(room["friendly_name"]))
+        while not found_slot and len(checked_weekdays) < len(ALL_WEEKDAYS):
+            # sort slots by time in descending order
+            slots = list(room["schedule"])
+            slots.sort(key=lambda a: a[1], reverse=True)
+            # first matching slot will be the latest scheduled temperature
+            for slot in slots:
+                if weekday in slot[0] and slot[1] <= _time:
+                    found_slot = slot
+                    break
+            _time = datetime.time(23, 59)
+            checked_weekdays.add(weekday)
+            # go one day backwards
+            weekday = (weekday - 2) % 7 + 1
 
-            now = datetime.datetime.now()
-            weekday = now.isoweekday()
-            current_time = now.time()
-            _time = current_time
-            checked_weekdays = set()
-            found_slot = None
-
-            while not found_slot and len(checked_weekdays) < len(ALL_WEEKDAYS):
-                # sort slots by time in descending order
-                slots = list(room["schedule"])
-                slots.sort(key=lambda a: a[1], reverse=True)
-                # first matching slot will be the latest scheduled temperature
-                for slot in slots:
-                    if weekday in slot[0] and slot[1] <= _time:
-                        found_slot = slot
-                        break
-                _time = datetime.time(23, 59)
-                checked_weekdays.add(weekday)
-                # go one day backwards
-                weekday = (weekday - 2) % 7 + 1
-
-            if found_slot:
-                self.set_temp(room_name, found_slot[2], auto=True)
+        if found_slot:
+            self.set_temp(room_name, found_slot[2], auto=True)
 
     def master_switch_enabled(self):
         """Returns the state of the master switch or True if no master
@@ -184,7 +193,7 @@ class Heaty(appapi.AppDaemon):
         """Parses the configuration provided via self.args and populates
            self.cfg."""
 
-        self.log("<-> Parsing configuration.")
+        self.log("--- Parsing configuration.")
 
         cfg = {}
 
@@ -192,6 +201,9 @@ class Heaty(appapi.AppDaemon):
         cfg["master_switch"] = None
         if master_switch is not None:
             cfg["master_switch"] = str(master_switch)
+
+        cfg["master_controls_schedule_switches"] = bool(self.args.get(
+                "master_controls_schedule_switches", True))
 
         off_temp = str(self.args.get("off_temp", "off")).lower()
         if off_temp != "off":

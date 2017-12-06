@@ -9,7 +9,13 @@ heaty:
 
   # This switch can be used to turn off all rooms (e.g. for vacation times).
   # You may use any switch that has the states "on" and "off".
+  # (optional, default: none)
   master_switch: input_boolean.heating_master
+
+  # Whether to automatically turn all schedule switches on together
+  # with the master switch.
+  # (optional, default: true)
+  master_controls_schedule_switches: true
 
   # Temperature that should be set when heatings are turned off.
   # 4 °C is recommended to protect against frost-induced damage.
