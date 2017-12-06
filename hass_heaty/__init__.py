@@ -130,12 +130,12 @@ class Heaty(appapi.AppDaemon):
                 value if value is not None else "unset",
                 th["opmode_service_attr"],
                 opmode))
-            attrs = {"entity_id":th_name,
-                     th["opmode_service_attr"]:opmode}
+            attrs = {"entity_id": th_name,
+                     th["opmode_service_attr"]: opmode}
             self.call_service(th["opmode_service"], **attrs)
             if value is not None:
-                attrs = {"entity_id":th_name,
-                         th["temp_service_attr"]:float(value)}
+                attrs = {"entity_id": th_name,
+                         th["temp_service_attr"]: value}
                 self.call_service(th["temp_service"], **attrs)
 
     def set_scheduled_temp(self, room_name):
@@ -207,7 +207,7 @@ class Heaty(appapi.AppDaemon):
 
         off_temp = str(self.args.get("off_temp", "off")).lower()
         if off_temp != "off":
-            off_temp = int(off_temp)
+            off_temp = float(off_temp)
         cfg["off_temp"] = off_temp
 
         rooms = self.args.get("rooms", {})
@@ -231,10 +231,10 @@ class Heaty(appapi.AppDaemon):
             for th_name, th_data in thermostats.items():
                 assert isinstance(th_data, dict)
                 th = {}
-                th["delta"] = int(th_data.get("delta", 0))
+                th["delta"] = float(th_data.get("delta", 0))
                 min_temp = th_data.get("min_temp")
                 if min_temp is not None:
-                    min_temp = int(min_temp)
+                    min_temp = float(min_temp)
                 th["min_temp"] = min_temp
                 th["opmode_heat"] = str(th_data.get("opmode_heat",
                     DEFAULT_OPMODE_HEAT))
@@ -263,7 +263,7 @@ class Heaty(appapi.AppDaemon):
                     m = TIME_PATTERN.match(spl[0])
                     assert m is not None
                     daytime = datetime.time(int(m.group(1)), int(m.group(2)))
-                    temp = int(spl[1])
+                    temp = float(spl[1])
                     slot = (weekdays, daytime, temp)
                     cfg["rooms"][room_name]["schedule"].append(slot)
 

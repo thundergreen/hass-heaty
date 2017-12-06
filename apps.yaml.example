@@ -83,13 +83,13 @@ heaty:
       # The different parts of a rule have to be separated by semicolons.
       # Any whitespace contained in a rule is ignored.
 
-      # From Monday to Friday, set temperature to 20 °C at 7.45 AM,
+      # From Monday to Friday, set temperature to 20.5 °C at 7.45 AM,
       # and to 16 °C at 11.00 PM.
-      - 1-5;  07:45 = 20;  23:00 = 16
+      - 1-5;  07:45 = 20.5;  23:00 = 16
 
-      # On weekends, set temperature to 20 °C at 8.15 AM,
+      # On weekends, set temperature to 20.5 °C at 8.15 AM,
       # and to 16 °C at 11.30 PM.
-      - 6-7;  8:15 = 20;  23:30 = 16
+      - 6-7;  8:15 = 20.5;  23:30 = 16
 
       # On Mondays and Thursdays, additionally set temperature to 22 °C
       #at 6.00 PM.
