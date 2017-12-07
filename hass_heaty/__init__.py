@@ -38,10 +38,20 @@ class Heaty(appapi.AppDaemon):
 
         self.parse_config()
 
+        self.log("--- Getting current temperatures from thermostats.")
         self.current_temps = {}
-        # populate with placeholder values for each room
-        for room_name in self.cfg["rooms"]:
+        for room_name, room in self.cfg["rooms"].items():
+            # populate with placeholder values in case there are no
+            # thermostats
             self.current_temps[room_name] = None
+            for th_name in room["thermostats"]:
+                # fetch initial state from thermostats
+                state = self.get_state(th_name, attribute="all")
+                # populate self.current_temps by simulating a state change
+                self.thermostat_state_cb(th_name, "all", state, state,
+                        {"room_name": room_name})
+                # We only consider one thermostat per room.
+                break
 
         if self.cfg["debug"]:
             self.log("--- Creating schedule timers.")
@@ -54,12 +64,6 @@ class Heaty(appapi.AppDaemon):
             self.log("--- Registering thermostat state listeners.")
         for room_name, room in self.cfg["rooms"].items():
             for th_name in room["thermostats"]:
-                # fetch initial state from thermostats
-                state = self.get_state(th_name, attribute="all")
-                # populate self.current_temps by simulating a state change
-                self.thermostat_state_cb(th_name, "all", state, state,
-                        {"room_name": room_name})
-                # finally, register the callback
                 self.listen_state(self.thermostat_state_cb, th_name,
                         attribute="all", room_name=room_name)
 
