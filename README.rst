@@ -1,8 +1,9 @@
 hass-heaty
 ==========
 
-A highly-configurable, comfortable to use HomeAssistant / appdaemon app
-that controls thermostats based on a schedule.
+A highly-configurable, comfortable to use Home Assistant / appdaemon app
+that controls thermostats based on a schedule while still facilitating
+manual intervention at any time.
 
 
 Installation
