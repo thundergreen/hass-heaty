@@ -1,1 +1,2 @@
 include README.rst
+include heaty_app.py

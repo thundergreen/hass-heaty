@@ -4,7 +4,7 @@
 heaty:
   # Obligatory settings that tell appdaemon where to find the app.
   # You shouldn't need to change these two.
-  module: heaty
+  module: heaty_app
   class: Heaty
 
   # This switch can be used to turn off all rooms (e.g. for vacation times).
