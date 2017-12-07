@@ -10,7 +10,7 @@ except ImportError:
 
 
 __all__ = ["Heaty"]
-__version__ = "0.1.3"
+__version__ = "0.1.4"
 
 
 DEFAULT_OPMODE_HEAT = "Heat"
