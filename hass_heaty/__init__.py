@@ -234,6 +234,14 @@ class Heaty(appapi.AppDaemon):
 
         room = self.cfg["rooms"][room_name]
 
+        if self.window_open(room_name):
+            # window is open, turn heating off
+            if self.current_temps[room_name] != "off":
+                self.log("--- Turning heating in {} off due to an open "
+                         "window.".format(room["friendly_name"]))
+                self.set_temp(room_name, "off", auto=False)
+            return
+
         if not self.master_switch_enabled() or \
            not self.schedule_switch_enabled(room_name):
             return
@@ -282,6 +290,15 @@ class Heaty(appapi.AppDaemon):
         if schedule_switch:
             return self.get_state(schedule_switch) == "on"
         return True
+
+    def window_open(self, room_name):
+        """Returns True if a window is open in the given room,
+           False otherwise."""
+        sensors = self.cfg["rooms"][room_name]["window_sensors"]
+        for sensor_name, sensor in sensors.items():
+            if self.get_state(sensor_name) == "on" or sensor["inverted"]:
+                return True
+        return False
 
     def parse_config(self):
         """Parses the configuration provided via self.args and populates
