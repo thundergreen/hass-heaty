@@ -193,6 +193,35 @@ class Heaty(appapi.AppDaemon):
         """Parses the configuration provided via self.args and populates
            self.cfg."""
 
+        def parse_thermostat_config(th_data, defaults=None):
+            if defaults is None:
+                defaults = {}
+
+            th = {}
+            th["delta"] = float(th_data.get("delta",
+                defaults.get("delta", 0)))
+            min_temp = th_data.get("min_temp", defaults.get("min_temp"))
+            if min_temp is not None:
+                min_temp = float(min_temp)
+            th["min_temp"] = min_temp
+            th["opmode_heat"] = str(th_data.get("opmode_heat",
+                defaults.get("opmode_heat", DEFAULT_OPMODE_HEAT)))
+            th["opmode_off"] = str(th_data.get("opmode_off",
+                defaults.get("opmode_off", DEFAULT_OPMODE_OFF)))
+            th["opmode_service"] = str(th_data.get("opmode_service",
+                defaults.get("opmode_service", DEFAULT_OPMODE_SERVICE)))
+            th["opmode_service_attr"] = str(th_data.get(
+                "opmode_service_attr",
+                defaults.get("opmode_service_attr",
+                    DEFAULT_OPMODE_SERVICE_ATTR)))
+            th["temp_service"] = str(th_data.get("temp_service",
+                defaults.get("temp_service", DEFAULT_TEMP_SERVICE)))
+            th["temp_service_attr"] = str(th_data.get(
+                "temp_service_attr",
+                defaults.get("temp_service_attr",
+                    DEFAULT_TEMP_SERVICE_ATTR)))
+            return th
+
         self.log("--- Parsing configuration.")
 
         cfg = {}
@@ -209,6 +238,11 @@ class Heaty(appapi.AppDaemon):
         if off_temp != "off":
             off_temp = float(off_temp)
         cfg["off_temp"] = off_temp
+
+        th_data = self.args.get("thermostat_defaults", {})
+        assert isinstance(th_data, dict)
+        th = parse_thermostat_config(th_data)
+        cfg["thermostat_defaults"] = th
 
         rooms = self.args.get("rooms", {})
         assert isinstance(rooms, dict)
@@ -230,24 +264,8 @@ class Heaty(appapi.AppDaemon):
             cfg["rooms"][room_name]["thermostats"] = {}
             for th_name, th_data in thermostats.items():
                 assert isinstance(th_data, dict)
-                th = {}
-                th["delta"] = float(th_data.get("delta", 0))
-                min_temp = th_data.get("min_temp")
-                if min_temp is not None:
-                    min_temp = float(min_temp)
-                th["min_temp"] = min_temp
-                th["opmode_heat"] = str(th_data.get("opmode_heat",
-                    DEFAULT_OPMODE_HEAT))
-                th["opmode_off"] = str(th_data.get("opmode_off",
-                    DEFAULT_OPMODE_OFF))
-                th["opmode_service"] = str(th_data.get("opmode_service",
-                    DEFAULT_OPMODE_SERVICE))
-                th["opmode_service_attr"] = str(th_data.get(
-                    "opmode_service_attr", DEFAULT_OPMODE_SERVICE_ATTR))
-                th["temp_service"] = str(th_data.get("temp_service",
-                    DEFAULT_TEMP_SERVICE))
-                th["temp_service_attr"] = str(th_data.get(
-                    "temp_service_attr", DEFAULT_TEMP_SERVICE_ATTR))
+                th = parse_thermostat_config(th_data,
+                        defaults=cfg["thermostat_defaults"])
                 cfg["rooms"][room_name]["thermostats"][th_name] = th
 
             schedule = room.get("schedule", [])

@@ -24,6 +24,30 @@ heaty:
   # (optional, default: off)
   off_temp: 4
 
+  # In the following config block, you may define settings that affect
+  # all thermostats in your setup.
+  thermostat_defaults:
+
+    # Delta that is added to the temperature value sent to this
+    # thermostat in order to correct potential inaccuracies of
+    # the temperature sensor.
+    # (optional, default: 0)
+    delta: 0.5
+
+    # You might want to use an alternative service that receives
+    # the operation mode value.
+    # (optional, default: climate/set_operation_mode)
+    opmode_service: climate/set_operation_mode
+    # (optional, default: operation_mode)
+    opmode_service_attr: operation_mode
+
+    # You might want to use an alternative service that receives
+    # the temperature value.
+    # (optional, default: climate/set_temperature)
+    temp_service: climate/set_temperature
+    # (optional, default: temperature)
+    temp_service_attr: temperature
+
   rooms:
 
     # Create such a block for every room you want to control.
@@ -42,24 +66,9 @@ heaty:
       thermostats:
 
         climate.living1
-          # Delta that is added to the temperature value sent to this
-          # thermostat.
-          # (optional)
-          delta: 2
-
-          # You might want to use an alternative service that receives
-          # the operation mode value.
-          # (optional, default: climate/set_operation_mode)
-          opmode_service: climate/set_operation_mode
-          # (optional, default: operation_mode)
-          opmode_service_attr: operation_mode
-
-          # You might want to use an alternative service that receives
-          # the temperature value.
-          # (optional, default: climate/set_temperature)
-          temp_service: climate/set_temperature
-          # (optional, default: temperature)
-          temp_service_attr: temperature
+          # We could, for instance, overwrite the delta for this
+          # particular thermostat.
+          delta: 1.0
 
         climate.living_2:
           # ...
