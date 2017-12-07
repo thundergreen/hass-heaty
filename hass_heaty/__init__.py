@@ -4,13 +4,13 @@ import re
 try:
     import appdaemon.appapi as appapi
 except ImportError:
-    # imported by setup.py
+    # Handle imports by setup.py to be able to fetch requirements.
     class appapi:
         AppDaemon = object
 
 
 __all__ = ["Heaty"]
-__version__ = "0.1.2"
+__version__ = "0.1.3"
 
 
 DEFAULT_OPMODE_HEAT = "Heat"
