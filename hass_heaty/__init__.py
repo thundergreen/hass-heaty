@@ -9,6 +9,7 @@ except ImportError:
         AppDaemon = object
 
 
+__all__ = ["Heaty"]
 __version__ = "0.1.2"
 
 
