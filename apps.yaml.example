@@ -7,6 +7,10 @@ heaty:
   module: heaty_app
   class: Heaty
 
+  # Enable debugging output
+  # (optional, default: false)
+  debug: false
+
   # This switch can be used to turn off all rooms (e.g. for vacation times).
   # You may use any switch that has the states "on" and "off".
   # (optional, default: none)
@@ -25,7 +29,8 @@ heaty:
   off_temp: 4
 
   # In the following config block, you may define settings that affect
-  # all thermostats in your setup.
+  # all thermostats in your setup. These can be overwritten on a per
+  # thermostat basis.
   thermostat_defaults:
 
     # Delta that is added to the temperature value sent to this
@@ -34,12 +39,30 @@ heaty:
     # (optional, default: 0)
     delta: 0.5
 
+    # The minimum temperature the thermostat supports.
+    # If a lower temperature than this is going to be set, the operation
+    # mode will be switched off instead of setting the temperature.
+    # (optional, default: not set)
+    min_temp: 8
+
+    # These two settings can be used to tweak the names of the
+    # operation modes.
+    # (optional, default: Heat)
+    opmode_heat: Heat
+    # (optional, default: Off)
+    opmode_off: Off
+
     # You might want to use an alternative service that receives
     # the operation mode value.
     # (optional, default: climate/set_operation_mode)
     opmode_service: climate/set_operation_mode
     # (optional, default: operation_mode)
     opmode_service_attr: operation_mode
+    # Entity attribute that holds the current operation mode.
+    # This is used to detect manual temperature adjustments and provide
+    # correct temperature values on startup.
+    # (optional, default: operation_mode)
+    opmode_state_attr: operation_mode
 
     # You might want to use an alternative service that receives
     # the temperature value.
@@ -47,6 +70,26 @@ heaty:
     temp_service: climate/set_temperature
     # (optional, default: temperature)
     temp_service_attr: temperature
+    # Entity attribute that holds the current target temperature.
+    # This is used to detect manual temperature adjustments and provide
+    # correct temperature values on startup.
+    # (optional, default: temperature)
+    temp_state_attr: temperature
+
+  # In the following config block, you may define settings that affect
+  # all window sensors in your setup. These can be overwritten on a per
+  # sensor basis.
+  window_sensor_defaults:
+
+    # Sensor state needs to stay constant for this number of seconds
+    #  before the window open/closed detection kicks in.
+    # (optional, default: 10)
+    delay: 10
+
+    # By default, a state of "on" means open and "off" means closed.
+    # When this is set to True, "on" means closed and "off" means open.
+    # (optional, default: false)
+    inverted: false
 
   rooms:
 
@@ -103,3 +146,13 @@ heaty:
       # On Mondays and Thursdays, additionally set temperature to 22 °C
       #at 6.00 PM.
       - 1,4; 18:00=22
+
+      # Window open/closed detection
+      window_sensors:
+
+        # Create a sensor item for each window sensor you want to consider
+        # and overwrite default parameters if needed.
+        # A window sensor may be any binary_sensor that changes states
+        # between "on" and "off".
+        binary_sensor.window_living:
+          inverted: true
