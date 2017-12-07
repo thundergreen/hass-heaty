@@ -10,7 +10,7 @@ except ImportError:
 
 
 __all__ = ["Heaty"]
-__version__ = "0.1.4"
+__version__ = "0.1.5"
 
 
 DEFAULT_OPMODE_HEAT = "Heat"
@@ -152,11 +152,15 @@ class Heaty(appapi.AppDaemon):
 
     def window_sensor_cb(self, entity, attr, old, new, kwargs):
         """Is called when a window sensor's state has changed."""
+
         room_name = kwargs["room_name"]
         room = self.cfg["rooms"][room_name]
         sensor = room["window_sensors"][entity]
         action = "opened" if new == "on" or sensor["inverted"] else "closed"
+        if self.cfg["debug"]:
+            self.log("<-- {}: state is now {}".format(entity, new))
         self.log("<-- Window in {} {}.".format(room["friendly_name"], action))
+
         if action == "opened":
             if self.schedule_switch_enabled(room_name):
                 # just turn off heating, temperature will be restored
