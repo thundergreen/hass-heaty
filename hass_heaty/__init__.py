@@ -148,10 +148,16 @@ class Heaty(appapi.AppDaemon):
 
     def schedule_switch_cb(self, entity, attr, old, new, kwargs):
         """Is called when a room's schedule switch is toggled."""
+
         room_name = kwargs["room_name"]
         self.log("<-- Schedule switch for {} turned {}."
                 .format(self.cfg["rooms"][room_name]["friendly_name"], new))
-        if new == "on" and self.master_switch_enabled():
+
+        if not self.master_switch_enabled():
+            self.log("--- Master switch is off, setting no initial values.")
+            return
+
+        if new == "on":
             self.set_scheduled_temp(room_name)
 
     def window_sensor_cb(self, entity, attr, old, new, kwargs):
@@ -165,21 +171,21 @@ class Heaty(appapi.AppDaemon):
             self.log("<-- {}: state is now {}".format(entity, new))
         self.log("<-- Window in {} {}.".format(room["friendly_name"], action))
 
+        if not self.master_switch_enabled():
+            self.log("--- Master switch is off, ignoring window.")
+            return
+
         if action == "opened":
-            if self.schedule_switch_enabled(room_name):
-                # just turn off heating, temperature will be restored
-                # from schedule anyway
-                self.set_temp(room_name, "off", auto=False)
-            else:
-                # turn heating off, but store the original temperature
-                orig_temp = self.current_temps[room_name]
-                self.set_temp(room_name, "off", auto=False)
-                self.current_temps[room_name] = orig_temp
+            # turn heating off, but store the original temperature
+            orig_temp = self.current_temps[room_name]
+            off_temp = self.cfg["off_temp"]
+            self.set_temp(room_name, off_temp, auto=False)
+            self.current_temps[room_name] = orig_temp
         else:
             if self.schedule_switch_enabled(room_name):
                 # easy, just set the scheduled temperature for now
                 self.set_scheduled_temp(room_name)
-            else:
+            elif self.master_switch_enabled():
                 # restore temperature from before opening the window
                 orig_temp = self.current_temps[room_name]
                 # could be None if we don't knew the temperature before
@@ -243,11 +249,12 @@ class Heaty(appapi.AppDaemon):
         room = self.cfg["rooms"][room_name]
 
         if self.window_open(room_name):
+            off_temp = self.cfg["off_temp"]
             # window is open, turn heating off
-            if self.current_temps[room_name] != "off":
-                self.log("--- Turning heating in {} off due to an open "
+            if self.current_temps[room_name] != off_temp:
+                self.log("--> Turning heating in {} off due to an open "
                          "window.".format(room["friendly_name"]))
-                self.set_temp(room_name, "off", auto=False)
+                self.set_temp(room_name, off_temp, auto=False)
             return
 
         if not self.master_switch_enabled() or \
