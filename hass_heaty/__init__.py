@@ -280,8 +280,9 @@ class Heaty(appapi.AppDaemon):
             return
 
         if new == "on":
-            self.cancel_reschedule_timer(room_name)
             self.set_scheduled_temp(room_name)
+        else:
+            self.cancel_reschedule_timer(room_name)
 
     def window_sensor_cb(self, entity, attr, old, new, kwargs):
         """Is called when a window sensor's state has changed."""
