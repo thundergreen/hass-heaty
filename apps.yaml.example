@@ -1,7 +1,41 @@
 # Example apps.yaml configuration for Heaty.
 # Simply copy this, paste it into your apps.yaml and adapt as needed.
 
-heaty:
+
+# This is a minimal example configuration that does just basic things.
+# If you want to have further control over your heatings, use open window
+# detection, set temperature based on entity states etc., please see the
+# full example below.
+heaty_minimal:
+  # Obligatory settings that tell appdaemon where to find the app.
+  # You shouldn't need to change these two.
+  module: heaty_app
+  class: Heaty
+
+  rooms:
+
+    # Define such a block for each room you want to control.
+    living:
+      thermostats:
+        climate.heating_living:
+        climate.heating_living_2:
+      schedule:
+      # From Monday to Friday, set temperature to 20.5 °C at 7.45 AM,
+      # and to 16 °C at 11.00 PM.
+      - 1-5;  07:45 = 20.5;  23:00 = 16
+      # On weekends, set temperature to 20.5 °C at 8.15 AM,
+      # and to 16 °C at 11.30 PM.
+      - 6,7;  8:15 = 20.5;  23:30 = 16
+
+    kitchen:
+      thermostats:
+        climate.heating_kitchen:
+      schedule:
+      # ...
+
+
+# Full configuration example
+heaty_full:
   # Obligatory settings that tell appdaemon where to find the app.
   # You shouldn't need to change these two.
   module: heaty_app
@@ -188,7 +222,7 @@ heaty:
       # Here is another interesting thing you can do with time expressions.
       # If such an expression evaluates to None, it is treated as if it
       # doesn't exist at all. You can use this behaviour to create rules
-      # that are only valid for a specific time range, for instance.
+      # that are only valid for a specific date range, for instance.
       - 1-7; 18:00 = 22 if datetime.date.today() == datetime.date(2017, 12, 24) else None
       - 1-7; 23:59 = 20 if datetime.date.today() == datetime.date(2017, 12, 24) else None
 
