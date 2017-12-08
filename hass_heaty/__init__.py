@@ -58,7 +58,7 @@ class Heaty(appapi.AppDaemon):
                 state = self.get_state(th_name, attribute="all")
                 # populate self.current_temps by simulating a state change
                 self.thermostat_state_cb(th_name, "all", state, state,
-                        {"room_name": room_name})
+                        {"room_name": room_name, "no_reschedule": True})
                 # only consider one thermostat per room
                 break
 
@@ -227,7 +227,8 @@ class Heaty(appapi.AppDaemon):
             self.current_temps[room_name] = temp
 
         if not self.master_switch_enabled() or \
-           not self.schedule_switch_enabled(room_name):
+           not self.schedule_switch_enabled(room_name) or \
+           kwargs.get("no_reschedule"):
             return
 
         if temp == self.get_scheduled_temp(room_name):
