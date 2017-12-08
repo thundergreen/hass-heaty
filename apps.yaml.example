@@ -28,6 +28,16 @@ heaty:
   # (optional, default: off)
   off_temp: 4
 
+  # You can build schedules that are based on the current state of some
+  # entities. We call these entities schedule entities. A schedule entity
+  # can be any entity in Home Assistant.
+  # The entities your schedules are based on should be registered in this
+  # config block so that Heaty can detect state changes of these entities
+  # and re-schedule your heatings eventually.
+  schedule_entities:
+    input_boolean.some_input:
+    input_slider.temp:
+
   # In the following config block, you may define settings that affect
   # all thermostats in your setup. These can be overwritten on a per
   # thermostat basis.
@@ -112,6 +122,12 @@ heaty:
       # (optional)
       schedule_switch: input_boolean.heating_schedule_living
 
+      # This setting controls whether changes made locally at one thermostat
+      # should automatically be replicated at the other ones in this
+      # particular room.
+      # (optional, default: true)
+      replicate_changes: true
+
       # All thermostats of this room go here.
       thermostats:
 
@@ -131,7 +147,8 @@ heaty:
 
       # A schedule consists of a number of rules, each defining:
       # - a set of weekdays and
-      # - a set of daytimes and corresponding temperatures.
+      # - a set of daytimes and corresponding temperature expressions.
+      #
       # For each rule, timers are created that set the desired temperatures
       # at the specified times on all weekdays the rule is valid on.
       #
@@ -141,6 +158,19 @@ heaty:
       #
       # The different parts of a rule have to be separated by semicolons.
       # Any whitespace contained in a rule is ignored.
+      #
+      # What is a temperature expression?
+      # Well, that is a fairly powerful way of expressing a temperature
+      # based on the state of entities, constants and a mathematical
+      # expression that glues all the values together.
+      # Actually, a temperature expression is evaluated as normal Python code.
+      # There is an object available under the name "app" which represents
+      # the appdaemon.AppDaemon object of Heaty. You could, for instance,
+      # retrieve values of input sliders via the normal appdaemon API.
+      # The following modules are also available inside time expressions:
+      # - datetime
+      #
+      # Let's look at some examples to make things clearer.
 
       # From Monday to Friday, set temperature to 20.5 °C at 7.45 AM,
       # and to 16 °C at 11.00 PM.
@@ -150,9 +180,17 @@ heaty:
       # and to 16 °C at 11.30 PM.
       - 6-7;  8:15 = 20.5;  23:30 = 16
 
-      # On Mondays and Thursdays, additionally set temperature to 22 °C
-      #at 6.00 PM.
-      - 1,4; 18:00=22
+      # On Mondays and Thursdays, additionally set temperature to the
+      # value of input_slider.temp at 6.00 PM.
+      - 1,4; 18:00 = app.get_state("input_slider.temp")
+
+      # Let's have it a bit warmer at Christmas Eve.
+      # Here is another interesting thing you can do with time expressions.
+      # If such an expression evaluates to None, it is treated as if it
+      # doesn't exist at all. You can use this behaviour to create rules
+      # that are only valid for a specific time range, for instance.
+      - 1-7; 18:00 = 22 if datetime.date.today() == datetime.date(2017, 12, 24) else None
+      - 1-7; 23:59 = 20 if datetime.date.today() == datetime.date(2017, 12, 24) else None
 
       # Window open/closed detection
       window_sensors:

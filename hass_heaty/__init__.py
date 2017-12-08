@@ -13,6 +13,10 @@ __all__ = ["Heaty"]
 __version__ = "0.1.6"
 
 
+TIME_EXPRESSION_MODULES = {
+        "datetime": datetime,
+    }
+
 DEFAULT_OPMODE_HEAT = "Heat"
 DEFAULT_OPMODE_OFF = "Off"
 DEFAULT_OPMODE_SERVICE = "climate/set_operation_mode"
@@ -21,6 +25,7 @@ DEFAULT_OPMODE_STATE_ATTR = "operation_mode"
 DEFAULT_TEMP_SERVICE = "climate/set_temperature"
 DEFAULT_TEMP_SERVICE_ATTR = "temperature"
 DEFAULT_TEMP_STATE_ATTR = "temperature"
+DEFAULT_SCHEDULE_ENTITY_DELAY = 5
 DEFAULT_WINDOW_SENSOR_DELAY = 10
 
 ALL_WEEKDAYS = set(range(1, 8))
@@ -59,12 +64,23 @@ class Heaty(appapi.AppDaemon):
         if self.cfg["debug"]:
             self.log("--- Creating schedule timers.")
         for room_name, room in self.cfg["rooms"].items():
-            for index, slot in enumerate(room["schedule"]):
+            for slot in room["schedule"]:
+                # run 1 second later to guarantee there is no race condition
+                t = datetime.time(slot[1].hour, slot[1].minute,
+                        slot[1].second + 1)
                 if self.cfg["debug"]:
-                    self.log("--- [{}] Registering timer at {}, slot #{}."
-                            .format(room["friendly_name"], slot[1], index))
-                self.run_daily(self.schedule_cb, slot[1],
-                        room_name=room_name, slot_index=index)
+                    self.log("--- [{}] Registering timer at {}."
+                            .format(room["friendly_name"], t))
+                self.run_daily(self.schedule_cb, t, room_name=room_name)
+
+        if self.cfg["debug"]:
+            self.log("--- Registering state listeners for schedule entities.")
+        for entity_name, entity in self.cfg["schedule_entities"].items():
+            if self.cfg["debug"]:
+                self.log("--- Registering state listener for {}, delay {}."
+                        .format(entity_name, DEFAULT_SCHEDULE_ENTITY_DELAY))
+            self.listen_state(self.schedule_entity_state_cb, entity_name,
+                    duration=DEFAULT_SCHEDULE_ENTITY_DELAY)
 
         if self.cfg["debug"]:
             self.log("--- Registering thermostat state listeners.")
@@ -109,7 +125,8 @@ class Heaty(appapi.AppDaemon):
         if self.master_switch_enabled():
             self.log("--- Setting initial temperatures where needed.")
             for room_name in self.cfg["rooms"]:
-                self.set_scheduled_temp(room_name)
+                if not self.check_for_open_window(room_name):
+                    self.set_scheduled_temp(room_name)
         else:
             self.log("--- Master switch is off, setting no initial values.")
 
@@ -117,19 +134,25 @@ class Heaty(appapi.AppDaemon):
 
     def schedule_cb(self, kwargs):
         """Is called whenever a schedule timer fires."""
-        room = self.cfg["rooms"][kwargs["room_name"]]
-        slot = room["schedule"][kwargs["slot_index"]]
-        weekday = datetime.datetime.now().isoweekday()
-        if weekday not in slot[0]:
-            # not today
-            return
-        target_temp = slot[2]
-        self.set_temp(kwargs["room_name"], target_temp, auto=True)
+        self.set_scheduled_temp(room_name)
+
+    def schedule_entity_state_cb(self, entity, attr, old, new, kwargs):
+        """Is called when the value of an entity changes that is part
+           of a dynamic schedule.
+           This method runs set_scheduled_temp for all rooms to refresh
+           the temperatures."""
+
+        if self.cfg["debug"]:
+            self.log("--- Re-computing temperatures in all rooms.")
+
+        for room_name in self.cfg["rooms"]:
+            self.set_scheduled_temp(room_name)
 
     def thermostat_state_cb(self, entity, attr, old, new, kwargs):
         """Is called when a thermostat's state changes.
            This method fetches the set target temperature from the
-           thermostat and updates self.current_temps accordingly."""
+           thermostat and sends updates to all other thermostats in
+           the room."""
 
         room_name = kwargs["room_name"]
         room = self.cfg["rooms"][room_name]
@@ -160,7 +183,13 @@ class Heaty(appapi.AppDaemon):
         if temp != self.current_temps[room_name]:
             self.log("--> [{}] Temperature is currently set to {}."
                     .format(room["friendly_name"], temp))
-            self.current_temps[room_name] = temp
+            if len(room["thermostats"]) > 1 and \
+               room["replicate_changes"]:
+                # propagate the change to all other thermostats in the room
+                self.set_temp(room_name, temp, auto=False)
+            else:
+                # just update the records
+                self.current_temps[room_name] = temp
 
     def master_switch_cb(self, entity, attr, old, new, kwargs):
         """Is called when the master switch is toggled."""
@@ -215,23 +244,19 @@ class Heaty(appapi.AppDaemon):
 
         if action == "opened":
             # turn heating off, but store the original temperature
-            orig_temp = self.current_temps[room_name]
-            off_temp = self.cfg["off_temp"]
-            self.set_temp(room_name, off_temp, auto=False)
-            self.current_temps[room_name] = orig_temp
+            self.check_for_open_window(room_name)
+        elif self.schedule_switch_enabled(room_name):
+            # easy, just set the scheduled temperature for now and
+            # force resend, because self.current_temps may already
+            # hold the correct value
+            self.set_scheduled_temp(room_name, force_resend=True)
         else:
-            if self.schedule_switch_enabled(room_name):
-                # easy, just set the scheduled temperature for now and
-                # force resend, because self.current_temps may already
-                # hold the correct value
-                self.set_scheduled_temp(room_name, force_resend=True)
-            elif self.master_switch_enabled():
-                # restore temperature from before opening the window
-                orig_temp = self.current_temps[room_name]
-                # could be None if we don't knew the temperature before
-                # opening the window
-                if orig_temp is not None:
-                    self.set_temp(room_name, orig_temp, auto=False)
+            # restore temperature from before opening the window
+            orig_temp = self.current_temps[room_name]
+            # could be None if we don't knew the temperature before
+            # opening the window
+            if orig_temp is not None:
+                self.set_temp(room_name, orig_temp, auto=False)
 
     def set_temp(self, room_name, target_temp, auto=False):
         """Sets the given target temperature for all thermostats in the
@@ -282,53 +307,102 @@ class Heaty(appapi.AppDaemon):
     def set_scheduled_temp(self, room_name, force_resend=False):
         """Sets the temperature that is configured for the current time
            in the given room. If the master or schedule switch is
-           turned off, this won't do anything. If force_resend is True,
-           and the temperature didn't change, it is sent to the
-           thermostats anyway."""
+           turned off or a window is open, this won't do anything.
+           If force_resend is True, and the temperature didn't
+           change, it is sent to the thermostats anyway."""
+
+        if not self.master_switch_enabled():
+            return
+        if not self.schedule_switch_enabled(room_name):
+            return
+        if self.window_open(room_name):
+            return
 
         room = self.cfg["rooms"][room_name]
-
-        if self.window_open(room_name):
-            off_temp = self.cfg["off_temp"]
-            # window is open, turn heating off
-            if self.current_temps[room_name] != off_temp:
-                self.log("<-- [{}] Turning heating off due to an open "
-                         "window.".format(room["friendly_name"]))
-                self.set_temp(room_name, off_temp, auto=False)
-            return
-
-        if not self.master_switch_enabled() or \
-           not self.schedule_switch_enabled(room_name):
-            return
-
         now = datetime.datetime.now()
         weekday = now.isoweekday()
         current_time = now.time()
         _time = current_time
         checked_weekdays = set()
-        found_slot = None
+        found_slots = []
+        # sort slots by time in descending order
+        slots = list(room["schedule"])
+        slots.sort(key=lambda a: a[1], reverse=True)
 
-        while not found_slot and len(checked_weekdays) < len(ALL_WEEKDAYS):
-            # sort slots by time in descending order
-            slots = list(room["schedule"])
-            slots.sort(key=lambda a: a[1], reverse=True)
-            # first matching slot will be the latest scheduled temperature
+        while len(checked_weekdays) < len(ALL_WEEKDAYS):
             for slot in slots:
                 if weekday in slot[0] and slot[1] <= _time:
-                    found_slot = slot
-                    break
-            _time = datetime.time(23, 59)
+                    found_slots.append(slot)
+            _time = datetime.time(23, 59, 59)
             checked_weekdays.add(weekday)
             # go one day backwards
             weekday = (weekday - 2) % 7 + 1
 
-        if found_slot:
-            temp = found_slot[2]
-            if self.current_temps[room_name] != temp or force_resend:
-                self.set_temp(room_name, temp, auto=True)
-            elif self.cfg["debug"]:
-                self.log("--- [{}] Not setting temperature to {} redundantly."
-                        .format(room["friendly_name"], temp))
+        for slot in found_slots:
+            temp_expr = slot[2]
+            # evaluate the temperature expression
+            temp = self.eval_temp_expr(temp_expr[0])
+            if self.cfg["debug"]:
+                self.log("--- [{}] Evaluated temperature expression {} "
+                         "to {}.".format(room["friendly_name"],
+                             repr(temp_expr[1]), temp))
+
+            if temp is not None:
+                if self.current_temps[room_name] != temp or force_resend:
+                    self.set_temp(room_name, temp, auto=True)
+                elif self.cfg["debug"]:
+                    self.log("--- [{}] Not setting temperature to {} "
+                             "redundantly."
+                             .format(room["friendly_name"], temp))
+                break
+
+            # skip this rule
+            if self.cfg["debug"]:
+                self.log("--- [{}] Skipping this rule."
+                        .format(room["friendly_name"]))
+
+    def check_for_open_window(self, room_name):
+        """Checks whether a window is open in the given room and,
+           if so, turns the heating off there. It returns True if
+           a window is open, False otherwise."""
+
+        room = self.cfg["rooms"][room_name]
+        if self.window_open(room_name):
+            # window is open, turn heating off
+            orig_temp = self.current_temps[room_name]
+            off_temp = self.cfg["off_temp"]
+            if self.current_temps[room_name] != off_temp:
+                self.log("<-- [{}] Turning heating off due to an open "
+                         "window.".format(room["friendly_name"]))
+                self.set_temp(room_name, off_temp, auto=False)
+            self.current_temps[room_name] = orig_temp
+            return True
+        return False
+
+    def eval_temp_expr(self, temp_expr):
+        """This method evaluates the given temperature expression.
+           The evaluation result is returned."""
+
+        parsed = parse_temp(temp_expr)
+        if parsed:
+            # not an expression, just return the parsed value
+            return parsed
+
+        # this is a dynamic temperature expression, evaluate it
+        env = {"app": self}
+        env.update(TIME_EXPRESSION_MODULES)
+        temp = eval(temp_expr, env)
+
+        if temp is None:
+            # None is a special case, pass it through
+            return
+
+        parsed = parse_temp(temp)
+        if not parsed:
+            raise ValueError("{} is no valid temperature"
+                    .format(repr(parsed)))
+
+        return parsed
 
     def master_switch_enabled(self):
         """Returns the state of the master switch or True if no master
@@ -369,10 +443,8 @@ class Heaty(appapi.AppDaemon):
             th = {}
             th["delta"] = float(th_data.get("delta",
                 defaults.get("delta", 0)))
-            min_temp = th_data.get("min_temp", defaults.get("min_temp"))
-            if min_temp is not None:
-                min_temp = float(min_temp)
-            th["min_temp"] = min_temp
+            th["min_temp"] = parse_temp(th_data.get("min_temp",
+                defaults.get("min_temp")))
             th["ignore_updates"] = bool(th_data.get("ignore_updates",
                 defaults.get("ignore_updates", False)))
             th["opmode_heat"] = str(th_data.get("opmode_heat",
@@ -429,10 +501,15 @@ class Heaty(appapi.AppDaemon):
         cfg["master_controls_schedule_switches"] = bool(self.args.get(
                 "master_controls_schedule_switches", True))
 
-        off_temp = str(self.args.get("off_temp", "off")).lower()
-        if off_temp != "off":
-            off_temp = float(off_temp)
-        cfg["off_temp"] = off_temp
+        cfg["off_temp"] = parse_temp(self.args.get("off_temp")) or "off"
+
+        entities = self.args.get("schedule_entities") or {}
+        assert isinstance(entities, dict)
+        cfg["schedule_entities"] = {}
+        for entity, entity_data in entities.items():
+            e = {}
+            # no settings yet
+            cfg["schedule_entities"][entity] = e
 
         th_data = self.args.get("thermostat_defaults") or {}
         assert isinstance(th_data, dict)
@@ -461,6 +538,9 @@ class Heaty(appapi.AppDaemon):
             if schedule_switch is not None:
                 cfg["rooms"][room_name]["schedule_switch"] = str(schedule_switch)
 
+            cfg["rooms"][room_name]["replicate_changes"] = bool(room.get(
+                "replicate_changes", True))
+
             thermostats = room.get("thermostats") or {}
             assert isinstance(thermostats, dict)
             cfg["rooms"][room_name]["thermostats"] = {}
@@ -476,16 +556,21 @@ class Heaty(appapi.AppDaemon):
             cfg["rooms"][room_name]["schedule"] = []
             for rule in schedule:
                 assert isinstance(rule, str)
-                spl = "".join(rule.split()).split(";")
-                weekdays = expand_range_string(spl[0])
+                spl = rule.strip().split(";")
+                weekdays = expand_range_string("".join(spl[0].split()))
                 for point in spl[1:]:
-                    spl = point.split("=")
+                    spl = point.split("=", 1)
                     assert len(spl) == 2
-                    m = TIME_PATTERN.match(spl[0])
+                    m = TIME_PATTERN.match("".join(spl[0].split()))
                     assert m is not None
                     daytime = datetime.time(int(m.group(1)), int(m.group(2)))
-                    temp = float(spl[1])
-                    slot = (weekdays, daytime, temp)
+                    temp_str = "".join(spl[1].split())
+                    temp = parse_temp(temp_str)
+                    if temp is None:
+                        # this is a temperature expression, precompile it
+                        temp_str = spl[1].strip()
+                        temp = compile(temp_str, "temp_expr", "eval")
+                    slot = (weekdays, daytime, (temp, temp_str))
                     cfg["rooms"][room_name]["schedule"].append(slot)
 
             window_sensors = room.get("window_sensors") or {}
@@ -514,3 +599,16 @@ def expand_range_string(s):
         else:
             l.add(int(part))
     return l
+
+def parse_temp(temp):
+    """Converts the given value to a valid temperature of type float or "off".
+       If conversion is not possible, None is returned."""
+
+    if isinstance(temp, str):
+        if temp.lower() == "off":
+            return "off"
+        temp = temp.strip()
+    try:
+        return float(temp)
+    except (ValueError, TypeError):
+        return
