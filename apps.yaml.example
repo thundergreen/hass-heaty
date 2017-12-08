@@ -45,6 +45,13 @@ heaty:
     # (optional, default: not set)
     min_temp: 8
 
+    # Whether you'd not like to query initial temperature values from
+    # the thermostat. It is recommended to leave this option disabled
+    # in order for Heaty to notice manual temperature changes made at
+    # the thermostat.
+    # (optional, default: false)
+    ignore_updates: false
+
     # These two settings can be used to tweak the names of the
     # operation modes.
     # (optional, default: Heat)

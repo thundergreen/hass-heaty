@@ -44,37 +44,53 @@ class Heaty(appapi.AppDaemon):
             # populate with placeholder values in case there are no
             # thermostats
             self.current_temps[room_name] = None
-            for th_name in room["thermostats"]:
+            for th_name, th in room["thermostats"].items():
+                if th["ignore_updates"]:
+                    # don't consider this thermostat for state updates
+                    continue
                 # fetch initial state from thermostats
                 state = self.get_state(th_name, attribute="all")
                 # populate self.current_temps by simulating a state change
                 self.thermostat_state_cb(th_name, "all", state, state,
                         {"room_name": room_name})
-                # We only consider one thermostat per room.
+                # only consider one thermostat per room
                 break
 
         if self.cfg["debug"]:
             self.log("--- Creating schedule timers.")
         for room_name, room in self.cfg["rooms"].items():
             for index, slot in enumerate(room["schedule"]):
+                if self.cfg["debug"]:
+                    self.log("--- Registering timer for {} at {}, slot #{}."
+                            .format(room_name, slot[1], index))
                 self.run_daily(self.schedule_cb, slot[1],
                         room_name=room_name, slot_index=index)
 
         if self.cfg["debug"]:
             self.log("--- Registering thermostat state listeners.")
         for room_name, room in self.cfg["rooms"].items():
-            for th_name in room["thermostats"]:
-                self.listen_state(self.thermostat_state_cb, th_name,
-                        attribute="all", room_name=room_name)
+            for th_name, th in room["thermostats"].items():
+                if not th["ignore_updates"]:
+                    if self.cfg["debug"]:
+                        self.log("--- Registering state listener for {}."
+                                .format(th_name))
+                    self.listen_state(self.thermostat_state_cb, th_name,
+                            attribute="all", room_name=room_name)
 
         if self.cfg["debug"]:
             self.log("--- Registering master/schedule switch state listeners.")
         master_switch = self.cfg["master_switch"]
         if master_switch:
+            if self.cfg["debug"]:
+                self.log("--- Registering state listener for {}."
+                        .format(master_switch))
             self.listen_state(self.master_switch_cb, master_switch)
         for room_name, room in self.cfg["rooms"].items():
             schedule_switch = room["schedule_switch"]
             if schedule_switch:
+                if self.cfg["debug"]:
+                    self.log("--- Registering state listener for {}."
+                            .format(schedule_switch))
                 self.listen_state(self.schedule_switch_cb, schedule_switch,
                         room_name=room_name)
 
@@ -82,6 +98,10 @@ class Heaty(appapi.AppDaemon):
             self.log("--- Registering window sensor state listeners.")
         for room_name, room in self.cfg["rooms"].items():
             for sensor_name, sensor in room["window_sensors"].items():
+                if self.cfg["debug"]:
+                    self.log("--- Registering state listener for {}, "
+                             "delay {}."
+                             .format(sensor_name, sensor["delay"]))
                 self.listen_state(self.window_sensor_cb, sensor_name,
                         duration=sensor["delay"], room_name=room_name)
 
@@ -106,37 +126,49 @@ class Heaty(appapi.AppDaemon):
         self.set_temp(kwargs["room_name"], target_temp, auto=True)
 
     def thermostat_state_cb(self, entity, attr, old, new, kwargs):
+        """Is called when a thermostat's state changes.
+           This method fetches the set target temperature from the
+           thermostat and updates self.current_temps accordingly."""
+
         room_name = kwargs["room_name"]
         room = self.cfg["rooms"][room_name]
         th = room["thermostats"][entity]
-        opmode = new["attributes"][th["opmode_state_attr"]]
+
+        opmode = new["attributes"].get(th["opmode_state_attr"])
         if self.cfg["debug"]:
-            self.log("<-- {}: attribute {} is {}"
+            self.log("--> {}: attribute {} is {}"
                     .format(entity, th["opmode_state_attr"], opmode))
-        if opmode == th["opmode_off"]:
+
+        if opmode is None:
+            # don't consider this thermostat
+            return
+        elif opmode == th["opmode_off"]:
             temp = "off"
         else:
-            temp = new["attributes"][th["temp_state_attr"]]
+            temp = new["attributes"].get(th["temp_state_attr"])
             if self.cfg["debug"]:
-                self.log("<-- {}: attribute {} is {}"
+                self.log("--> {}: attribute {} is {}"
                         .format(entity, th["temp_state_attr"], temp))
+            if temp is None:
+                # don't consider this thermostat
+                return
             temp = float(temp) - th["delta"]
 
         if temp != self.current_temps[room_name]:
-            self.log("<-- Temperature set to {} in {}."
+            self.log("--> Temperature currently set to {} in {}."
                     .format(temp, room["friendly_name"]))
             self.current_temps[room_name] = temp
 
     def master_switch_cb(self, entity, attr, old, new, kwargs):
         """Is called when the master switch is toggled."""
-        self.log("<-- Master switch turned {}.".format(new))
+        self.log("--> Master switch turned {}.".format(new))
         for room_name, room in self.cfg["rooms"].items():
             schedule_switch = room["schedule_switch"]
             if new == "on":
                 if schedule_switch and \
                    self.cfg["master_controls_schedule_switches"] and \
                    not self.schedule_switch_enabled(room_name):
-                    self.log("--> Turning schedule switch for {} on."
+                    self.log("<-- Turning schedule switch for {} on."
                             .format(room["friendly_name"]))
                     # This will automatically invoke a call to
                     # set_scheduled_temp by the schedule_switch_cb.
@@ -150,7 +182,7 @@ class Heaty(appapi.AppDaemon):
         """Is called when a room's schedule switch is toggled."""
 
         room_name = kwargs["room_name"]
-        self.log("<-- Schedule switch for {} turned {}."
+        self.log("--> Schedule switch for {} turned {}."
                 .format(self.cfg["rooms"][room_name]["friendly_name"], new))
 
         if not self.master_switch_enabled():
@@ -168,8 +200,8 @@ class Heaty(appapi.AppDaemon):
         sensor = room["window_sensors"][entity]
         action = "opened" if new == "on" or sensor["inverted"] else "closed"
         if self.cfg["debug"]:
-            self.log("<-- {}: state is now {}".format(entity, new))
-        self.log("<-- Window in {} {}.".format(room["friendly_name"], action))
+            self.log("--> {}: state is now {}".format(entity, new))
+        self.log("--> Window in {} {}.".format(room["friendly_name"], action))
 
         if not self.master_switch_enabled():
             self.log("--- Master switch is off, ignoring window.")
@@ -183,8 +215,10 @@ class Heaty(appapi.AppDaemon):
             self.current_temps[room_name] = orig_temp
         else:
             if self.schedule_switch_enabled(room_name):
-                # easy, just set the scheduled temperature for now
-                self.set_scheduled_temp(room_name)
+                # easy, just set the scheduled temperature for now and
+                # force resend, because self.current_temps may already
+                # hold the correct value
+                self.set_scheduled_temp(room_name, force_resend=True)
             elif self.master_switch_enabled():
                 # restore temperature from before opening the window
                 orig_temp = self.current_temps[room_name]
@@ -205,7 +239,7 @@ class Heaty(appapi.AppDaemon):
            not self.schedule_switch_enabled(room_name)):
             return
 
-        self.log("--> Setting temperature in {} to {}  [{}]".format(
+        self.log("<-- Setting temperature in {} to {}  [{}]".format(
                 room["friendly_name"], target_temp,
                 "scheduled" if auto else "manual"))
 
@@ -224,7 +258,7 @@ class Heaty(appapi.AppDaemon):
                     opmode = th["opmode_heat"]
 
             if self.cfg["debug"]:
-                self.log("--> Setting {}: {}={}, {}={}".format(
+                self.log("<-- Setting {}: {}={}, {}={}".format(
                     th_name,
                     th["temp_service_attr"],
                     value if value is not None else "<unset>",
@@ -239,10 +273,10 @@ class Heaty(appapi.AppDaemon):
                          th["temp_service_attr"]: value}
                 self.call_service(th["temp_service"], **attrs)
 
-    def set_scheduled_temp(self, room_name, force_reset=False):
+    def set_scheduled_temp(self, room_name, force_resend=False):
         """Sets the temperature that is configured for the current time
            in the given room. If the master or schedule switch is
-           turned off, this won't do anything. If force_reset is True,
+           turned off, this won't do anything. If force_resend is True,
            and the temperature didn't change, it is sent to the
            thermostats anyway."""
 
@@ -252,7 +286,7 @@ class Heaty(appapi.AppDaemon):
             off_temp = self.cfg["off_temp"]
             # window is open, turn heating off
             if self.current_temps[room_name] != off_temp:
-                self.log("--> Turning heating in {} off due to an open "
+                self.log("<-- Turning heating in {} off due to an open "
                          "window.".format(room["friendly_name"]))
                 self.set_temp(room_name, off_temp, auto=False)
             return
@@ -284,7 +318,7 @@ class Heaty(appapi.AppDaemon):
 
         if found_slot:
             temp = found_slot[2]
-            if self.current_temps[room_name] != temp or force_reset:
+            if self.current_temps[room_name] != temp or force_resend:
                 self.set_temp(room_name, temp, auto=True)
             elif self.cfg["debug"]:
                 self.log("--- Not setting temperature to {} in {} "
@@ -333,6 +367,8 @@ class Heaty(appapi.AppDaemon):
             if min_temp is not None:
                 min_temp = float(min_temp)
             th["min_temp"] = min_temp
+            th["ignore_updates"] = bool(th_data.get("ignore_updates",
+                defaults.get("ignore_updates", False)))
             th["opmode_heat"] = str(th_data.get("opmode_heat",
                 defaults.get("opmode_heat", DEFAULT_OPMODE_HEAT)))
             th["opmode_off"] = str(th_data.get("opmode_off",
