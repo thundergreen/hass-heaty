@@ -10,7 +10,7 @@ except ImportError:
 
 
 __all__ = ["Heaty"]
-__version__ = "0.1.7"
+__version__ = "0.1.8"
 
 
 TIME_EXPRESSION_MODULES = {
