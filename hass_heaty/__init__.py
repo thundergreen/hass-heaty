@@ -61,8 +61,8 @@ class Heaty(appapi.AppDaemon):
         for room_name, room in self.cfg["rooms"].items():
             for index, slot in enumerate(room["schedule"]):
                 if self.cfg["debug"]:
-                    self.log("--- Registering timer for {} at {}, slot #{}."
-                            .format(room_name, slot[1], index))
+                    self.log("--- [{}] Registering timer at {}, slot #{}."
+                            .format(room["friendly_name"], slot[1], index))
                 self.run_daily(self.schedule_cb, slot[1],
                         room_name=room_name, slot_index=index)
 
@@ -72,8 +72,8 @@ class Heaty(appapi.AppDaemon):
             for th_name, th in room["thermostats"].items():
                 if not th["ignore_updates"]:
                     if self.cfg["debug"]:
-                        self.log("--- Registering state listener for {}."
-                                .format(th_name))
+                        self.log("--- [{}] Registering state listener for {}."
+                                .format(room["friendly_name"], th_name))
                     self.listen_state(self.thermostat_state_cb, th_name,
                             attribute="all", room_name=room_name)
 
@@ -89,8 +89,8 @@ class Heaty(appapi.AppDaemon):
             schedule_switch = room["schedule_switch"]
             if schedule_switch:
                 if self.cfg["debug"]:
-                    self.log("--- Registering state listener for {}."
-                            .format(schedule_switch))
+                    self.log("--- [{}] Registering state listener for {}."
+                            .format(room["friendly_name"], schedule_switch))
                 self.listen_state(self.schedule_switch_cb, schedule_switch,
                         room_name=room_name)
 
@@ -99,9 +99,10 @@ class Heaty(appapi.AppDaemon):
         for room_name, room in self.cfg["rooms"].items():
             for sensor_name, sensor in room["window_sensors"].items():
                 if self.cfg["debug"]:
-                    self.log("--- Registering state listener for {}, "
-                             "delay {}."
-                             .format(sensor_name, sensor["delay"]))
+                    self.log("--- [{}] Registering state listener for {}, "
+                             "delay {}.".format(
+                                 room["friendly_name"], sensor_name,
+                                 sensor["delay"]))
                 self.listen_state(self.window_sensor_cb, sensor_name,
                         duration=sensor["delay"], room_name=room_name)
 
@@ -136,8 +137,9 @@ class Heaty(appapi.AppDaemon):
 
         opmode = new["attributes"].get(th["opmode_state_attr"])
         if self.cfg["debug"]:
-            self.log("--> {}: attribute {} is {}"
-                    .format(entity, th["opmode_state_attr"], opmode))
+            self.log("--> [{}] {}: attribute {} is {}"
+                    .format(room["friendly_name"], entity,
+                        th["opmode_state_attr"], opmode))
 
         if opmode is None:
             # don't consider this thermostat
@@ -147,16 +149,17 @@ class Heaty(appapi.AppDaemon):
         else:
             temp = new["attributes"].get(th["temp_state_attr"])
             if self.cfg["debug"]:
-                self.log("--> {}: attribute {} is {}"
-                        .format(entity, th["temp_state_attr"], temp))
+                self.log("--> [{}] {}: attribute {} is {}"
+                        .format(room["friendly_name"], entity,
+                            th["temp_state_attr"], temp))
             if temp is None:
                 # don't consider this thermostat
                 return
             temp = float(temp) - th["delta"]
 
         if temp != self.current_temps[room_name]:
-            self.log("--> Temperature currently set to {} in {}."
-                    .format(temp, room["friendly_name"]))
+            self.log("--> [{}] Temperature is currently set to {}."
+                    .format(room["friendly_name"], temp))
             self.current_temps[room_name] = temp
 
     def master_switch_cb(self, entity, attr, old, new, kwargs):
@@ -168,7 +171,7 @@ class Heaty(appapi.AppDaemon):
                 if schedule_switch and \
                    self.cfg["master_controls_schedule_switches"] and \
                    not self.schedule_switch_enabled(room_name):
-                    self.log("<-- Turning schedule switch for {} on."
+                    self.log("<-- [{}] Turning schedule switch on."
                             .format(room["friendly_name"]))
                     # This will automatically invoke a call to
                     # set_scheduled_temp by the schedule_switch_cb.
@@ -182,8 +185,9 @@ class Heaty(appapi.AppDaemon):
         """Is called when a room's schedule switch is toggled."""
 
         room_name = kwargs["room_name"]
-        self.log("--> Schedule switch for {} turned {}."
-                .format(self.cfg["rooms"][room_name]["friendly_name"], new))
+        room = self.cfg["rooms"][room_name]
+        self.log("--> [{}] Schedule switch turned {}."
+                .format(room["friendly_name"], new))
 
         if not self.master_switch_enabled():
             self.log("--- Master switch is off, setting no initial values.")
@@ -200,11 +204,13 @@ class Heaty(appapi.AppDaemon):
         sensor = room["window_sensors"][entity]
         action = "opened" if new == "on" or sensor["inverted"] else "closed"
         if self.cfg["debug"]:
-            self.log("--> {}: state is now {}".format(entity, new))
-        self.log("--> Window in {} {}.".format(room["friendly_name"], action))
+            self.log("--> [{}] {}: state is now {}"
+                    .format(room["friendly_name"], entity, new))
+        self.log("--> [{}] Window {}.".format(room["friendly_name"], action))
 
         if not self.master_switch_enabled():
-            self.log("--- Master switch is off, ignoring window.")
+            self.log("--- [{}] Master switch is off, ignoring window."
+                    .format(room["friendly_name"]))
             return
 
         if action == "opened":
@@ -239,7 +245,7 @@ class Heaty(appapi.AppDaemon):
            not self.schedule_switch_enabled(room_name)):
             return
 
-        self.log("<-- Setting temperature in {} to {}  [{}]".format(
+        self.log("<-- [{}] Temperature to {}  [{}]".format(
                 room["friendly_name"], target_temp,
                 "scheduled" if auto else "manual"))
 
@@ -258,8 +264,8 @@ class Heaty(appapi.AppDaemon):
                     opmode = th["opmode_heat"]
 
             if self.cfg["debug"]:
-                self.log("<-- Setting {}: {}={}, {}={}".format(
-                    th_name,
+                self.log("<-- [{}] Setting {}: {}={}, {}={}".format(
+                    room["friendly_name"], th_name,
                     th["temp_service_attr"],
                     value if value is not None else "<unset>",
                     th["opmode_service_attr"],
@@ -286,7 +292,7 @@ class Heaty(appapi.AppDaemon):
             off_temp = self.cfg["off_temp"]
             # window is open, turn heating off
             if self.current_temps[room_name] != off_temp:
-                self.log("<-- Turning heating in {} off due to an open "
+                self.log("<-- [{}] Turning heating off due to an open "
                          "window.".format(room["friendly_name"]))
                 self.set_temp(room_name, off_temp, auto=False)
             return
@@ -321,8 +327,8 @@ class Heaty(appapi.AppDaemon):
             if self.current_temps[room_name] != temp or force_resend:
                 self.set_temp(room_name, temp, auto=True)
             elif self.cfg["debug"]:
-                self.log("--- Not setting temperature to {} in {} "
-                         "redundantly.".format(temp, room["friendly_name"]))
+                self.log("--- [{}] Not setting temperature to {} redundantly."
+                        .format(room["friendly_name"], temp))
 
     def master_switch_enabled(self):
         """Returns the state of the master switch or True if no master
