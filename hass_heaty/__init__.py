@@ -43,11 +43,12 @@ class Heaty(appapi.AppDaemon):
 
         self.parse_config()
 
+        self.reschedule_timers = {}
+
         self.log("--- Getting current temperatures from thermostats.")
         self.current_temps = {}
         for room_name, room in self.cfg["rooms"].items():
-            # populate with placeholder values in case there are no
-            # thermostats
+            # set placeholder value in case there are no thermostats
             self.current_temps[room_name] = None
             for th_name, th in room["thermostats"].items():
                 if th["ignore_updates"]:
@@ -134,6 +135,44 @@ class Heaty(appapi.AppDaemon):
 
     def schedule_cb(self, kwargs):
         """Is called whenever a schedule timer fires."""
+
+        room_name = kwargs["room_name"]
+        room = self.cfg["rooms"][room_name]
+
+        if self.cfg["debug"]:
+            self.log("--- [{}] Schedule timer fired."
+                    .format(room["friendly_name"]))
+
+        if self.reschedule_timers.get(room_name):
+            # don't schedule now, wait for the timer instead
+            if self.cfg["debug"]:
+                self.log("--- [{}] Ignoring because of running re-schedule "
+                         "timer."
+                         .format(room["friendly_name"]))
+            return
+
+        self.set_scheduled_temp(room_name)
+
+    def reschedule_cb(self, kwargs):
+        """Is called whenever a re-schedule timer fires."""
+
+        room_name = kwargs["room_name"]
+        room = self.cfg["rooms"][room_name]
+
+        if self.cfg["debug"]:
+            self.log("--- [{}] Re-schedule timer fired."
+                    .format(room["friendly_name"]))
+
+        # cancel the reschedule timer first, if one exists
+        try:
+            timer = self.reschedule_timers.pop(room_name)
+            if self.cfg["debug"]:
+                self.log("--- [{}] Cancelling old re-schedule timer."
+                        .format(room["friendly_name"]))
+            self.cancel_timer(timer)
+        except KeyError:
+            pass
+
         self.set_scheduled_temp(room_name)
 
     def schedule_entity_state_cb(self, entity, attr, old, new, kwargs):
@@ -184,12 +223,35 @@ class Heaty(appapi.AppDaemon):
             self.log("--> [{}] Temperature is currently set to {}."
                     .format(room["friendly_name"], temp))
             if len(room["thermostats"]) > 1 and \
-               room["replicate_changes"]:
+               room["replicate_changes"] and self.master_switch_enabled():
+                if self.cfg["debug"]:
+                    self.log("<-- [{}] Propagating the change to all "
+                             "thermostats.".format(room["friendly_name"]))
                 # propagate the change to all other thermostats in the room
                 self.set_temp(room_name, temp, auto=False)
             else:
                 # just update the records
                 self.current_temps[room_name] = temp
+
+            if room["reschedule_delay"] and \
+               self.master_switch_enabled() and \
+               self.schedule_switch_enabled(room_name):
+                # cancel the re-schedule timer first, if one exists
+                timer = self.reschedule_timers.get(room_name)
+                if timer:
+                    if self.cfg["debug"]:
+                        self.log("--- [{}] Cancelling old re-schedule timer."
+                                .format(room["friendly_name"]))
+                    self.cancel_timer(timer)
+                # delay is expected to be in seconds by appdaemon
+                delay = room["reschedule_delay"] * 60
+                # register a new timer
+                if self.cfg["debug"]:
+                    self.log("--- [{}] Registering re-schedule timer in {} "
+                             "seconds.".format(room["friendly_name"], delay))
+                timer = self.run_in(self.reschedule_cb, delay,
+                        room_name=room_name)
+                self.reschedule_timers[room_name] = timer
 
     def master_switch_cb(self, entity, attr, old, new, kwargs):
         """Is called when the master switch is toggled."""
@@ -536,10 +598,14 @@ class Heaty(appapi.AppDaemon):
             schedule_switch = room.get("schedule_switch")
             cfg["rooms"][room_name]["schedule_switch"] = None
             if schedule_switch is not None:
-                cfg["rooms"][room_name]["schedule_switch"] = str(schedule_switch)
+                cfg["rooms"][room_name]["schedule_switch"] = \
+                        str(schedule_switch)
 
             cfg["rooms"][room_name]["replicate_changes"] = bool(room.get(
                 "replicate_changes", True))
+
+            reschedule_delay = int(room.get("reschedule_delay", 0))
+            cfg["rooms"][room_name]["reschedule_delay"] = reschedule_delay
 
             thermostats = room.get("thermostats") or {}
             assert isinstance(thermostats, dict)

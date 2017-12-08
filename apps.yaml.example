@@ -162,6 +162,14 @@ heaty_full:
       # (optional, default: true)
       replicate_changes: true
 
+      # Set this value to a number of minutes and Heaty will automatically
+      # re-schedule the temperature after a manual change has been made.
+      # If you, for instance, change the target temperature at one of your
+      # thermostats and this value is set to 120, Heaty will again apply
+      # the schedule 2 hours after you made the change.
+      # (optional, default: 0)
+      reschedule_delay: 0
+
       # All thermostats of this room go here.
       thermostats:
 
