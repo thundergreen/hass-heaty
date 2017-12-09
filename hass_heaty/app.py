@@ -14,10 +14,6 @@ from . import __version__, config, util
 __all__ = ["Heaty"]
 
 
-TIME_EXPRESSION_ENV = {
-    "datetime": datetime,
-}
-
 SCHEDULE_ENTITY_DELAY = 5
 
 
@@ -434,6 +430,14 @@ class Heaty(appapi.AppDaemon):
                 self.log("--- [{}] Not setting temperature to {} "
                          "redundantly."
                          .format(room["friendly_name"], temp))
+
+    def eval_temp_expr(self, temp_expr, extra_env=None):
+        """This is a wrapper around util.eval_temp_expr that adds the
+           app object to the evaluation environment."""
+        if extra_env is None:
+            extra_env = {}
+        extra_env.setdefault("app", self)
+        return util.eval_temp_expr(temp_expr, extra_env=extra_env)
 
     def cancel_reschedule_timer(self, room_name):
         """Cancels the reschedule timer for the given room, if one

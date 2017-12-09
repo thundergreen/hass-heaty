@@ -217,9 +217,11 @@ heaty_full:
       # expression that glues all the values together.
       # Actually, a temperature expression is evaluated as normal Python code.
       # There is an object available under the name "app" which represents
-      # the appdaemon.AppDaemon object of Heaty. You could, for instance,
-      # retrieve values of input sliders via the normal appdaemon API.
-      # The following variables are also available inside time expressions:
+      # the appdaemon.appapi.AppDaemon object of Heaty. You could,
+      # for instance, retrieve values of input sliders via the normal
+      # appdaemon API.
+      # The following variables are available inside time expressions:
+      # - app: the appdaemon.appapi.AppDaemon object
       # - datetime: the datetime module
       # - now: a shortcut for datetime.datetime.now()
       #
