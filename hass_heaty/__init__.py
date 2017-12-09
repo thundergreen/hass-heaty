@@ -10,7 +10,7 @@ except ImportError:
 
 
 __all__ = ["Heaty"]
-__version__ = "0.1.8"
+__version__ = "0.2.0"
 
 
 TIME_EXPRESSION_ENV = {
