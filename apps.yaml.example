@@ -209,8 +209,9 @@ heaty_full:
       # There is an object available under the name "app" which represents
       # the appdaemon.AppDaemon object of Heaty. You could, for instance,
       # retrieve values of input sliders via the normal appdaemon API.
-      # The following modules are also available inside time expressions:
-      # - datetime
+      # The following variables are also available inside time expressions:
+      # - datetime: the datetime module
+      # - now: a shortcut for datetime.datetime.now()
       #
       # Let's look at some examples to make things clearer.
 
@@ -231,8 +232,8 @@ heaty_full:
       # If such an expression evaluates to None, it is treated as if it
       # doesn't exist at all. You can use this behaviour to create rules
       # that are only valid for a specific date range, for instance.
-      - 1-7; 18:00 = 22 if datetime.date.today() == datetime.date(2017, 12, 24) else None
-      - 1-7; 23:59 = 20 if datetime.date.today() == datetime.date(2017, 12, 24) else None
+      - 1-7; 18:00 = 22 if now.date() == datetime.date(2017, 12, 24) else None
+      - 1-7; 23:59 = 20 if now.date() == datetime.date(2017, 12, 24) else None
 
       # Window open/closed detection
       window_sensors:
