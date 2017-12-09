@@ -24,8 +24,12 @@ setup(
     author_email = "r.schindler@efficiosoft.com",
     license = "MIT",
     packages = ["hass_heaty"],
+    package_data = {
+        "hass_heaty": ["data/*"],
+    },
     install_requires = [
         "appdaemon >= 2.1.12",
+        "jsonschema >= 2.5.0",
     ],
     zip_safe = False,
 )

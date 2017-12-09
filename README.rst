@@ -22,8 +22,8 @@ Configuration
 1. Get yourself a nice cup of coffee or tea. You'll surely need it.
 
 2. Copy the file ``heaty_app.py`` to your AppDaemon's ``apps`` directory.
-   This is just a stub that imports the real app's code and hence does
-   never need to be upgraded or modified again.
+   This is just a stub that imports the real app's code, making later
+   upgrades a little easier.
 
 3. Copy the contents of ``apps.yaml.example`` to your ``apps.yaml`` file
    and adapt it as necessary. The example file also contains documentation
@@ -52,10 +52,4 @@ Simply pull upgrades via PIP:
 Note that AppDaemon doesn't detect changes in the imported modules
 automatically and needs to be restarted manually after an upgrade.
 
-**Since v0.1.3:**
-Alternatively, touch the ``heaty_app.py`` file which will trigger a
-reload of the ``hass_heaty`` module explicitly, like so:
-
-::
-
-    touch ~/.homeassistant/apps/heaty_app.py
+**When upgrading from v0.2.0,** please do also upgrade ``heaty_app.py``.

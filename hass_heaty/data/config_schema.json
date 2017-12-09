@@ -1,0 +1,93 @@
+{
+	"$schema": "http://json-schema.org/schema#",
+
+	"definitions": {
+		"temperature": {
+			"anyOf": [
+				{ "type": "number" },
+				{ "type": "string", "pattern": "^off$" }
+			]
+		},
+		"optional_entity_name": {
+			"anyOf": [
+				{ "type": "string" },
+				{ "type": "null" }
+			]
+		},
+		"schedule_entity": {
+			"type": "object"
+		},
+		"thermostat": {
+			"type": "object",
+			"properties": {
+				"delta": { "type": "number", "default": 0 },
+				"min_temp": {
+					"anyOf": [
+						{ "$ref": "#/definitions/temperature" },
+						{ "type": "null" }
+					],
+					"default": null
+				},
+				"ignore_updates": { "type": "boolean", "default": false },
+				"opmode_heat": { "type": "string", "default": "Heat" },
+				"opmode_off": { "type": "string", "default": "Off" },
+				"opmode_service": { "type": "string", "default": "climate/set_operation_mode" },
+				"opmode_service_attr": { "type": "string", "default": "operation_mode" },
+				"opmode_state_attr": { "type": "string", "default": "operation_mode" },
+				"temp_service": { "type": "string", "default": "climate/set_temperature" },
+				"temp_service_attr": { "type": "string", "default": "temperature" },
+				"temp_state_attr": { "type": "string", "default": "temperature" }
+			}
+		},
+		"window_sensor": {
+			"type": "object",
+			"properties": {
+				"delay": { "type": "integer", "min": 0, "default": 10 },
+				"inverted": { "type": "boolean", "default": false }
+			}
+		},
+		"room": {
+			"type": "object",
+			"properties": {
+				"friendly_name": { "type": "string" },
+				"schedule_switch": { "$ref": "#/definitions/optional_entity_name", "default": null },
+				"replicate_changes": { "type": "boolean", "default": true },
+				"reschedule_delay": { "type": "integer", "min": 0, "default": 0 },
+				"thermostats": {
+					"type": "object",
+					"additionalProperties": { "$ref": "#/definitions/thermostat", "ignoreDefaults": true }
+				},
+				"window_sensors": {
+					"type": "object",
+					"additionalProperties": { "$ref": "#/definitions/window_sensor", "ignoreDefaults": true }
+				},
+				"schedule": { "$ref": "#/definitions/schedule" }
+			}
+		},
+		"schedule": {
+			"type": "array",
+			"items": { "$ref": "#/definitions/schedule_rule" }
+		},
+		"schedule_rule": {
+			"type": "string"
+		}
+	},
+
+	"type": "object",
+	"properties": {
+		"debug": { "type": "boolean", "default": false },
+		"master_switch": { "$ref": "#/definitions/optional_entity_name", "default": null },
+		"master_controls_schedule_switches": { "type": "boolean", "default": true },
+		"off_temp": { "$ref": "#/definitions/temperature", "default": "off" },
+		"schedule_entities": {
+			"type": "object",
+			"additionalProperties": { "$ref": "#/definitions/schedule_entity" }
+		},
+		"thermostat_defaults": { "$ref": "#/definitions/thermostat" },
+		"window_sensor_defaults": { "$ref": "#/definitions/window_sensor" },
+		"rooms": {
+			"type": "object",
+			"additionalProperties": { "$ref": "#/definitions/room" }
+		}
+	}
+}

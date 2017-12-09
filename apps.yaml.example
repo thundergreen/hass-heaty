@@ -181,6 +181,16 @@ heaty_full:
         climate.living_2:
           # ...
 
+      # Window open/closed detection
+      window_sensors:
+
+        # Create a sensor item for each window sensor you want to consider
+        # and overwrite default parameters if needed.
+        # A window sensor may be any binary_sensor that changes states
+        # between "on" and "off".
+        binary_sensor.window_living:
+          inverted: true
+
       # Schedule for this room.
       # If you don't want to have this room be controlled by a schedule,
       # simply omit the schedule or leave it empty.
@@ -234,13 +244,3 @@ heaty_full:
       # that are only valid for a specific date range, for instance.
       - 1-7; 18:00 = 22 if now.date() == datetime.date(2017, 12, 24) else None
       - 1-7; 23:59 = 20 if now.date() == datetime.date(2017, 12, 24) else None
-
-      # Window open/closed detection
-      window_sensors:
-
-        # Create a sensor item for each window sensor you want to consider
-        # and overwrite default parameters if needed.
-        # A window sensor may be any binary_sensor that changes states
-        # between "on" and "off".
-        binary_sensor.window_living:
-          inverted: true
