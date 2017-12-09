@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+
 import os
 from setuptools import setup
 
@@ -13,7 +14,10 @@ def read_file(fname):
 setup(
     name = "hass_heaty",
     version = __version__,
-    description = "A highly-configurable, comfortable to use HomeAssistant / appdaemon app that controls thermostats based on a schedule.",
+    description = "A highly-configurable, comfortable to use HomeAssistant "
+                  "/ appdaemon app that controls thermostats based on a "
+                  "schedule while facilitating manual intervention at any "
+                  "time.",
     long_description = read_file("README.rst"),
     url = "https://github.com/efficiosoft/hass-heaty",
     author = "Robert Schindler",
