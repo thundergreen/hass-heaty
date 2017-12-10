@@ -48,7 +48,9 @@ def build_time_expression_env():
 def eval_temp_expr(temp_expr, extra_env=None):
     """This method evaluates the given temperature expression.
        The evaluation result is returned. The items of the extra_env
-       dict are added to the globals available during evaluation."""
+       dict are added to the globals available during evaluation.
+       The result is either None, "ignore" or a valid temperature value
+       as returned by parse_temp()."""
 
     parsed = parse_temp(temp_expr)
     if parsed:
@@ -61,8 +63,8 @@ def eval_temp_expr(temp_expr, extra_env=None):
         env.update(extra_env)
     temp = eval(temp_expr, env)
 
-    if temp is None:
-        # None is a special case, pass it through
+    if temp in (None, "ignore"):
+        # None and "ignore" are special cases, pass it through
         return
 
     parsed = parse_temp(temp)

@@ -465,19 +465,21 @@ class Heaty(appapi.AppDaemon):
 
         for slot in found_slots:
             temp_expr = slot[2]
-            # evaluate the temperature expression
             temp = self.eval_temp_expr(temp_expr[0])
             if self.cfg["debug"]:
                 self.log("--- [{}] Evaluated temperature expression {} "
                          "to {}."
                          .format(room["friendly_name"], repr(temp_expr[1]),
                                  temp))
-            if temp is not None:
-                return temp
-            # skip this rule
-            if self.cfg["debug"]:
-                self.log("--- [{}] Skipping this rule."
-                         .format(room["friendly_name"]))
+
+            if temp == "ignore":
+                # skip this rule
+                if self.cfg["debug"]:
+                    self.log("--- [{}] Skipping this rule."
+                             .format(room["friendly_name"]))
+                continue
+
+            return temp
 
     def set_scheduled_temp(self, room_name, force_resend=False):
         """Sets the temperature that is configured for the current time
@@ -518,15 +520,15 @@ class Heaty(appapi.AppDaemon):
             return
 
         room = self.cfg["rooms"][room_name]
-        # evaluate the temperature expression
         temp = self.eval_temp_expr(temp_expr)
         if self.cfg["debug"]:
             self.log("--- [{}] Evaluated temperature expression {} "
                      "to {}."
                      .format(room["friendly_name"], repr(temp_expr),
                              repr(temp)))
-        if temp is None:
-            self.log("--- [{}] Expression evaluated to None, ignoring."
+
+        if temp in (None, "ignore"):
+            self.log("--- [{}] Ignoring temperature expression."
                      .format(room["friendly_name"]))
             return
 

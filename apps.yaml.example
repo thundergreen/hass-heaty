@@ -220,23 +220,8 @@ heaty_full:
       # The different parts of a rule have to be separated by semicolons.
       # Any whitespace contained in a rule is ignored.
       #
-      # What is a temperature expression?
-      # Well, that is a fairly powerful way of expressing a temperature
-      # based on the state of entities, constants and a mathematical
-      # expression that glues all the values together.
-      # Actually, a temperature expression is evaluated as normal Python code.
-      # There is an object available under the name "app" which represents
-      # the appdaemon.appapi.AppDaemon object of Heaty. You could,
-      # for instance, retrieve values of input sliders via the normal
-      # appdaemon API.
-      # The following variables are available inside time expressions:
-      # - app: the appdaemon.appapi.AppDaemon object
-      # - datetime: Python's datetime module
-      # - now: a datetime containing the current date and time
-      # - date: a shortcut for now.date()
-      # - time: a shortcut for now.time()
-      #
-      # Let's look at some examples to make things clearer.
+      # For a detailled explanation of temperature expressions, please
+      # see README.rst.
 
       # From Monday to Friday, set temperature to 20.5 °C at 7.45 AM,
       # and to 16 °C at 11.00 PM.
@@ -252,8 +237,8 @@ heaty_full:
 
       # Let's have it a bit warmer at Christmas Eve.
       # Here is another interesting thing you can do with time expressions.
-      # If such an expression evaluates to None, it is treated as if it
+      # If such an expression evaluates to "ignore", it is treated as if it
       # doesn't exist at all. You can use this behaviour to create rules
       # that are only valid for a specific date range, for instance.
-      - 1-7; 18:00 = 22 if date == datetime.date(2017, 12, 24) else None
-      - 1-7; 23:59 = 20 if date == datetime.date(2017, 12, 24) else None
+      - 1-7; 18:00 = 22 if date == datetime.date(2017, 12, 24) else "ignore"
+      - 1-7; 23:59 = 20 if date == datetime.date(2017, 12, 24) else "ignore"

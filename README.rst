@@ -76,6 +76,45 @@ automatically and needs to be restarted manually after an upgrade.
 **When upgrading from v0.2.0,** please do also upgrade ``heaty_app.py``.
 
 
+Temperature Expressions
+-----------------------
+
+Heaty accepts so called temperature expressions in schedules or when
+manually setting a temperature via the ``heaty_set_temp`` event.
+
+Temperature expressions are a powerful way of expressing a temperature
+in relation to anything you can think of. This power comes from the fact
+that temperature expressions are just normal Python expressions which
+are evaluated at runtime. When Heaty parses its configuration, all
+temperature expressions are pre-compiled to make their later evaluation
+more performant.
+
+Temperature expressions must evaluate to one of the following values:
+
+* a ``float`` or ``int`` which is used as the temperature,
+* a ``str`` containing a number, which is converted to a ``float``
+  automatically for convenience,
+* the string ``"off"``, which means just that,
+* the string ``"ignore"``, which causes the rule to be ignored and,
+  if one exists, the next older one to be evaluated or
+* the value ``None``, which simply means no change to the temperature.
+
+There is an object available under the name ``app`` which represents
+the ``appdaemon.appapi.AppDaemon`` object of Heaty. You could,
+for instance, retrieve values of input sliders via the normal
+AppDaemon API.
+
+The following variables are available inside time expressions:
+
+* ``app``: the appdaemon.appapi.AppDaemon object
+* ``datetime``: Python's ``datetime`` module
+* ``now``: a ``datetime.datetime`` object containing the current date and time
+* ``date``: a shortcut for ``now.date()``
+* ``time``: a shortcut for ``now.time()``
+
+Examples on how to use temperature expressions are coming soon.
+
+
 Events
 ------
 
