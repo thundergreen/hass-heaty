@@ -147,6 +147,11 @@ Now, whenever the state of ``input_boolean.some_switch`` changes, a
 re-scheduling is triggered in all rooms, giving schedule rules the
 chance to react on the new state.
 
+Note that Heaty adds a slight delay of 5 seconds afther the entity
+has changed before it starts the re-scheduling. This allows correcting
+accidental changes of input elements within 5 seconds. Also, several
+changes that happen in series will only trigger one single re-scheduling.
+
 
 Events
 ------
