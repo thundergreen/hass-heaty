@@ -83,6 +83,7 @@
 			"default": null
 		},
 		"debug": { "type": "boolean", "default": false },
+		"untrusted_temp_expressions": { "type": "boolean", "default": false },
 		"master_switch": { "$ref": "#/definitions/optional_entity_name", "default": null },
 		"master_controls_schedule_switches": { "type": "boolean", "default": true },
 		"off_temp": { "$ref": "#/definitions/temperature", "default": "off" },

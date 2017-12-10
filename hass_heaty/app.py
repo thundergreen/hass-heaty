@@ -235,6 +235,13 @@ class Heaty(appapi.AppDaemon):
                      "room.".format(room_name))
             return
 
+        if not self.cfg["untrusted_temp_expressions"] and \
+           util.parse_temp(temp_expr) is None:
+            self.log("--> [{}] Ignoring heaty_set_temp event with an "
+                     "untrusted temperature expression. "
+                     "(untrusted_temp_expressions = false)".format(room_name))
+            return
+
         room = self.cfg["rooms"][room_name]
         self.log("--- [{}] heaty_set_temp event received, temperature: {}"
                  .format(room["friendly_name"], temp_expr))

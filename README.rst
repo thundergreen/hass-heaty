@@ -129,6 +129,25 @@ The following variables are available inside time expressions:
 Examples on how to use temperature expressions are coming soon.
 
 
+Security considerations
+~~~~~~~~~~~~~~~~~~~~~~~
+
+It has to be noted that temperature expressions are evaluated using
+Python's ``eval()`` function. In general, this is not suited for code
+originating from a source you don't trust completely, because such code
+can potentially execute arbitrary commands on your system with the same
+permissions and capabilities the AppDaemon process itself has.
+That shouldn't be a problem for temperature expressions you write
+yourself inside schedules.
+
+This feature could however become problematic if an attacker somehow
+is able to emit events on your Home Assistant's event bus. To prevent
+temperature expressions from being accepted in the ``heaty_set_temp``
+event, processing of such expressions is disabled by default and has
+to be enabled explicitly by setting ``untrusted_temp_expressions: true``
+in your Heaty configuration.
+
+
 Re-schedule entities
 --------------------
 

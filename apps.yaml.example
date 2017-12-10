@@ -54,6 +54,12 @@ heaty_full:
   # (optional, default: false)
   debug: false
 
+  # If you enable this option, potentially harmful temperature
+  # expressions received in a heaty_set_temp event are evaluated.
+  # For more information, please see README.rst.
+  # (optional, default: false)
+  untrusted_temp_expressions: false
+
   # This switch can be used to turn off all rooms (e.g. for vacation times).
   # You may use any switch that has the states "on" and "off".
   # (optional, default: none)
