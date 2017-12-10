@@ -115,12 +115,31 @@ The following variables are available inside time expressions:
 Examples on how to use temperature expressions are coming soon.
 
 
+Re-schedule entities
+--------------------
+
+Schedules may be based on the state of some known entities. Heaty can
+register a state listener for these entities which triggers a
+re-scheduling everytime the state of an entity changes.
+
+These entities go into the ``reschedule_entities`` section of your config:
+
+::
+
+    reschedule_entities:
+      input_boolean.some_switch:
+
+Now, whenever the state of ``input_boolean.some_switch`` changes, a
+re-scheduling is triggered in all rooms, giving schedule rules the
+chance to react on the new state.
+
+
 Events
 ------
 
 Heaty introduces two new events it listens to:
 
-* ``heaty_reschedule``: trigger a re-scheduling of the temperature
+* ``heaty_reschedule``: Trigger a re-scheduling of the temperature.
   Parameters are:
 
   * ``room_name``: the name of the room to re-schedule as defined in Heaty's configuration (not the ``friendly_name``) (optional, default: ``null``, which means all rooms)
@@ -149,25 +168,6 @@ regular schedule after one hour:
         room_name: living
         temp: 25.0
         reschedule_delay: 60
-
-
-Re-schedule entities
---------------------
-
-Schedules may be based on the state of some known entities. Heaty can
-register a state listener for these entities which triggers a
-re-scheduling everytime the state of an entity changes.
-
-These entities go into the ``reschedule_entities`` section of your config:
-
-::
-
-    reschedule_entities:
-      input_boolean.some_switch:
-
-Now, whenever the state of ``input_boolean.some_switch`` changes, a
-re-scheduling is triggered in all rooms, giving schedule rules the
-chance to react on the new state.
 
 
 Using Heaty without schedules
