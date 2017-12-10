@@ -75,6 +75,13 @@
 
 	"type": "object",
 	"properties": {
+		"heaty_id": {
+			"anyOf": [
+				{ "type": "string" },
+				{ "type": "null" }
+			],
+			"default": null
+		},
 		"debug": { "type": "boolean", "default": false },
 		"master_switch": { "$ref": "#/definitions/optional_entity_name", "default": null },
 		"master_controls_schedule_switches": { "type": "boolean", "default": true },

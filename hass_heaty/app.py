@@ -36,6 +36,12 @@ class Heaty(appapi.AppDaemon):
         self.log("--- Parsing the configuration.")
         self.cfg = config.parse_config(self.args)
 
+        heaty_id = self.cfg["heaty_id"]
+        heaty_id_kwargs = {}
+        if heaty_id:
+            self.log("--- Heaty id is: {}".format(repr(heaty_id)))
+            heaty_id_kwargs["heaty_id"] = heaty_id
+
         self.reschedule_timers = {}
 
         self.log("--- Getting current temperatures from thermostats.")
@@ -58,11 +64,13 @@ class Heaty(appapi.AppDaemon):
 
         if self.cfg["debug"]:
             self.log("--- Registering event listener for heaty_reschedule.")
-        self.listen_event(self.reschedule_event_cb, "heaty_reschedule")
+        self.listen_event(self.reschedule_event_cb, "heaty_reschedule",
+                          **heaty_id_kwargs)
 
         if self.cfg["debug"]:
             self.log("--- Registering event listener for heaty_set_temp.")
-        self.listen_event(self.set_temp_event_cb, "heaty_set_temp")
+        self.listen_event(self.set_temp_event_cb, "heaty_set_temp",
+                          **heaty_id_kwargs)
 
         if self.cfg["debug"]:
             self.log("--- Creating schedule timers.")

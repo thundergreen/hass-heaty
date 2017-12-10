@@ -41,6 +41,15 @@ heaty_full:
   module: heaty_app
   class: Heaty
 
+  # An unique id that identifies this instance of Heaty.
+  # This is just needed if you plan to run multiple Heaty instances
+  # on a single Home Assistant instance.
+  # If set, the id has to be passed with every heaty_* event you emit
+  # for Heaty to be able to determine the instance the event is
+  # intended for.
+  # (optional, default: null)
+  heaty_id: null
+
   # Enable debugging output
   # (optional, default: false)
   debug: false
@@ -86,7 +95,7 @@ heaty_full:
     # The minimum temperature the thermostat supports.
     # If a lower temperature than this is going to be set, the operation
     # mode will be switched off instead of setting the temperature.
-    # (optional, default: not set)
+    # (optional, default: null, which means there is no limitation)
     min_temp: 8
 
     # Whether you'd not like to query initial temperature values from

@@ -83,7 +83,7 @@ Heaty introduces two new events it listens to:
 
 * ``heaty_reschedule``: trigger a re-scheduling of the temperature
   Parameters:
-  * ``room_name``: the name of the room to re-schedule as defined in Heaty's configuration (not the ``friendly_name``) (optional, default: none, which means all rooms)
+  * ``room_name``: the name of the room to re-schedule as defined in Heaty's configuration (not the ``friendly_name``) (optional, default: null, which means all rooms)
 
 * ``heaty_set_temp``: Sets a given temperature in a room.
   Parameter:
