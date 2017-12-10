@@ -5,15 +5,28 @@ A highly-configurable, comfortable to use Home Assistant / appdaemon app
 that controls thermostats based on a schedule while still facilitating
 manual intervention at any time.
 
+**Note:**
+Heaty is still a young piece of software which likely contains some bugs.
+Please keep that in mind when using it. Bug reports and suggestions are
+always welcome. Use the GitHub Issues for this sort of feedback.
+
 
 Installation
 ------------
 
-Install via PIP.
+Install from PyPi.
 
 ::
 
     pip3 install hass-heaty
+
+Or clone the GitHub repository to get even the latest changes:
+
+::
+
+    git clone https://github.com/efficiosoft/hass-heaty
+    cd hass-heaty
+    pip3 install . --upgrade
 
 
 Configuration
@@ -43,11 +56,19 @@ You're done!
 Upgrade
 -------
 
-Simply pull upgrades via PIP:
+Simply pull upgrades from PyPi:
 
 ::
 
     pip3 install --upgrade hass-heaty
+
+Or, if you installed from the git repository:
+
+::
+
+    cd /path/to/your/clone/of/the/repository
+    git pull
+    pip3 install . --upgrade
 
 Note that AppDaemon doesn't detect changes in the imported modules
 automatically and needs to be restarted manually after an upgrade.
