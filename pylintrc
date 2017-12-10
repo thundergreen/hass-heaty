@@ -1,7 +1,5 @@
 [pylint]
 disable =
-    eval-used,
-    too-many-arguments,
-    too-many-branches,
-    too-many-locals,
-    too-many-statements
+    eval-used
+max-args = 6
+max-branches = 15

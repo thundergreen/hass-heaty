@@ -20,6 +20,8 @@ RESCHEDULE_ENTITY_DELAY = 5
 class Heaty(appapi.AppDaemon):
     """The Heaty app class for AppDaemon."""
 
+    # pylint: disable=too-many-public-methods
+
     def __init__(self, *args, **kwargs):
         super(Heaty, self).__init__(*args, **kwargs)
         self.cfg = None
@@ -27,9 +29,11 @@ class Heaty(appapi.AppDaemon):
         self.reschedule_timers = {}
 
     def initialize(self):
-        """Parses the configuration, initializes all timers and state
-           callbacks and sets temperatures in all rooms according to
-           the configured schedule."""
+        """Parses the configuration, initializes all timers, state and
+           event callbacks and sets temperatures in all rooms according
+           to the configured schedules."""
+
+        # pylint: disable=too-many-branches,too-many-statements
 
         self.log("--- Heaty v{} initialization started.".format(__version__))
 
@@ -42,10 +46,7 @@ class Heaty(appapi.AppDaemon):
             self.log("--- Heaty id is: {}".format(repr(heaty_id)))
             heaty_id_kwargs["heaty_id"] = heaty_id
 
-        self.reschedule_timers = {}
-
         self.log("--- Getting current temperatures from thermostats.")
-        self.current_temps = {}
         for room_name, room in self.cfg["rooms"].items():
             # set placeholder value in case there are no thermostats
             self.current_temps[room_name] = None

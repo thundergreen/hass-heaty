@@ -96,6 +96,8 @@ def parse_config(cfg):
     """Creates a copy of the given config dict, validates it and populates
        it with default values where appropriate."""
 
+    # pylint: disable=too-many-branches,too-many-locals
+
     cfg = copy.deepcopy(cfg)
 
     # Yes, this is dirty, but the values we get from yaml can contain
