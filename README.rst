@@ -74,3 +74,34 @@ Note that AppDaemon doesn't detect changes in the imported modules
 automatically and needs to be restarted manually after an upgrade.
 
 **When upgrading from v0.2.0,** please do also upgrade ``heaty_app.py``.
+
+
+Events
+------
+
+Heaty introduces two new events it listens to:
+
+* ``heaty_reschedule``: trigger a re-scheduling of the temperature
+  Parameters:
+  * ``room_name``: the name of the room to re-schedule as defined in Heaty's configuration (not the ``friendly_name``) (optional, default: none, which means all rooms)
+
+* ``heaty_set_temp``: Sets a given temperature in a room.
+  Parameter:
+  * ``room_name``: the name of the room as defined in Heaty's configuration (not the ``friendly_name``)
+  * ``temp``: a temperature expression
+  * ``force_resend``: whether to re-send the temperature to the thermostats even if it hasn't changed due to Heaty's records (optional, default: false)
+  * ``reschedule_delay``: a number of minutes after which Heaty should automatically switch back to the schedule (optional, default: the ``reschedule_delay`` set in Heaty's configuration for the particular room)
+
+You can emit these events from your custom Home Assistant automations
+or scripts in order to control Heaty's behaviour.
+
+
+Using Heaty without schedules
+-----------------------------
+
+Schedules are not mandatory when using Heaty. It is perfectly valid to
+use Heaty just for controlling temperatures in rooms manually while
+still benefitting from other features like the open window detection.
+
+To do so, just leave out everything that is related to schedules in
+your ``apps.yaml``.

@@ -22,7 +22,7 @@ class Heaty(appapi.AppDaemon):
 
     def __init__(self, *args, **kwargs):
         super(Heaty, self).__init__(*args, **kwargs)
-        self.cfg = {}
+        self.cfg = None
         self.current_temps = {}
         self.reschedule_timers = {}
 
@@ -55,6 +55,14 @@ class Heaty(appapi.AppDaemon):
                                           "no_reschedule": True})
                 # only consider one thermostat per room
                 break
+
+        if self.cfg["debug"]:
+            self.log("--- Registering event listener for heaty_reschedule.")
+        self.listen_event(self.reschedule_event_cb, "heaty_reschedule")
+
+        if self.cfg["debug"]:
+            self.log("--- Registering event listener for heaty_set_temp.")
+        self.listen_event(self.set_temp_event_cb, "heaty_set_temp")
 
         if self.cfg["debug"]:
             self.log("--- Creating schedule timers.")
@@ -147,7 +155,7 @@ class Heaty(appapi.AppDaemon):
 
         self.set_scheduled_temp(room_name)
 
-    def reschedule_cb(self, kwargs):
+    def reschedule_timer_cb(self, kwargs):
         """Is called whenever a re-schedule timer fires."""
         room_name = kwargs["room_name"]
         room = self.cfg["rooms"][room_name]
@@ -155,6 +163,28 @@ class Heaty(appapi.AppDaemon):
                  .format(room["friendly_name"]))
         self.cancel_reschedule_timer(room_name)
         self.set_scheduled_temp(room_name)
+
+    def reschedule_event_cb(self, event, data, kwargs):
+        """This callback executes when a heaty_reschedule event is received.
+           data may contain a "room_name", which limits the re-scheduling
+           to the given room."""
+
+        room_name = data.get("room_name")
+        if room_name:
+            if room_name not in self.cfg["rooms"]:
+                self.log("--> [{}] Ignoring heaty_reschedule event for "
+                         "unknown room.".format(room_name))
+                return
+            room_names = [room_name]
+        else:
+            room_names = self.cfg["rooms"].keys()
+
+        for room_name in room_names:
+            room = self.cfg["rooms"][room_name]
+            self.log("--- [{}] Re-schedule event received."
+                     .format(room["friendly_name"]))
+#            self.cancel_reschedule_timer(room_name)
+            self.set_scheduled_temp(room_name)
 
     def schedule_entity_state_cb(self, entity, attr, old, new, kwargs):
         """Is called when the value of an entity changes that is part
@@ -165,6 +195,41 @@ class Heaty(appapi.AppDaemon):
             self.log("--- Re-computing temperatures in all rooms.")
         for room_name in self.cfg["rooms"]:
             self.set_scheduled_temp(room_name)
+
+    def set_temp_event_cb(self, event, data, kwargs):
+        """This callback executes when a heaty_set_temp event is received.
+           data must contain a "room_name" and a "temp", which may also
+           be a temperature expression. "force_resend" is optional and
+           False by default. If it is set to True, the temperature is
+           re-sent to the thermostats even if it hasn't changed due to
+           Heaty's records."""
+
+        try:
+            room_name = data["room_name"]
+            temp_expr = data["temp"]
+            reschedule_delay = data.get("reschedule_delay")
+            if not isinstance(reschedule_delay, (type(None), float, int)):
+                raise TypeError()
+            if isinstance(reschedule_delay, (float, int)) and \
+               reschedule_delay < 0:
+                raise ValueError()
+        except (KeyError, TypeError, ValueError):
+            self.log("--> Ignoring heaty_set_temp event with invalid data: {}"
+                     "room.".format(repr(data)))
+            return
+
+        if room_name not in self.cfg["rooms"]:
+            self.log("--> [{}] Ignoring heaty_set_temp event for unknown "
+                     "room.".format(room_name))
+            return
+
+        room = self.cfg["rooms"][room_name]
+        self.log("--- [{}] heaty_set_temp event received, temperature: {}"
+                 .format(room["friendly_name"], temp_expr))
+
+        self.set_manual_temp(room_name, temp_expr,
+                             force_resend=bool(data.get("force_resend")),
+                             reschedule_delay=reschedule_delay)
 
     def thermostat_state_cb(self, entity, attr, old, new, kwargs):
         """Is called when a thermostat's state changes.
@@ -228,29 +293,10 @@ class Heaty(appapi.AppDaemon):
             # just update the records
             self.current_temps[room_name] = temp
 
-        if any((not self.master_switch_enabled(),
-                not self.schedule_switch_enabled(room_name),
-                kwargs.get("no_reschedule"))):
+        if not kwargs.get("no_reschedule"):
             # only re-schedule when in schedule mode and not
             # explicitly disabled
-            return
-
-        if temp == self.get_scheduled_temp(room_name):
-            # hit scheduled temperature, cancelling the timer and
-            # going back to schedule
-            self.cancel_reschedule_timer(room_name)
-        elif room["reschedule_delay"]:
-            self.cancel_reschedule_timer(room_name)
-            # delay is expected to be in seconds by AppDaemon, but given
-            # to Heaty as minutes
-            delay = 60 * room["reschedule_delay"]
-            if self.cfg["debug"]:
-                self.log("--- [{}] Registering re-schedule timer in "
-                         "{} seconds."
-                         .format(room["friendly_name"], delay))
-            timer = self.run_in(self.reschedule_cb, delay,
-                                room_name=room_name)
-            self.reschedule_timers[room_name] = timer
+            self.update_reschedule_timer(room_name)
 
     def master_switch_cb(self, entity, attr, old, new, kwargs):
         """Is called when the master switch is toggled.
@@ -446,6 +492,43 @@ class Heaty(appapi.AppDaemon):
                          "redundantly."
                          .format(room["friendly_name"], temp))
 
+    def set_manual_temp(self, room_name, temp_expr, force_resend=False,
+                        reschedule_delay=None):
+        """Sets the temperature in the given room. If the master switch
+           is turned off or a window is open, this won't do anything.
+           If force_resend is True, and the temperature didn't
+           change, it is sent to the thermostats anyway.
+           An existing re-schedule timer is cancelled and a new one is
+           started if re-schedule timers are configured. reschedule_delay,
+           if given, overwrites the value configured for the room."""
+
+        if not self.master_switch_enabled() or \
+           self.get_open_windows(room_name):
+            return
+
+        room = self.cfg["rooms"][room_name]
+        # evaluate the temperature expression
+        temp = self.eval_temp_expr(temp_expr)
+        if self.cfg["debug"]:
+            self.log("--- [{}] Evaluated temperature expression {} "
+                     "to {}."
+                     .format(room["friendly_name"], repr(temp_expr),
+                             repr(temp)))
+        if temp is None:
+            self.log("--- [{}] Expression evaluated to None, ignoring."
+                     .format(room["friendly_name"]))
+            return
+
+        if self.current_temps[room_name] != temp or force_resend:
+            self.set_temp(room_name, temp, scheduled=False)
+        elif self.cfg["debug"]:
+            self.log("--- [{}] Not setting temperature to {} "
+                     "redundantly."
+                     .format(room["friendly_name"], temp))
+
+        self.update_reschedule_timer(room_name,
+                                     reschedule_delay=reschedule_delay)
+
     def eval_temp_expr(self, temp_expr, extra_env=None):
         """This is a wrapper around util.eval_temp_expr that adds the
            app object to the evaluation environment."""
@@ -454,14 +537,48 @@ class Heaty(appapi.AppDaemon):
         extra_env.setdefault("app", self)
         return util.eval_temp_expr(temp_expr, extra_env=extra_env)
 
+    def update_reschedule_timer(self, room_name, reschedule_delay=None):
+        """This method cancels an existing re-schedule timer first.
+           Then, it checks whether the current temperature in the
+           given room differs from the scheduled temperature. If so,
+           a new timer is created according to the room's settings.
+           reschedule_delay, if given, overwrites the value configured
+           for the room."""
+
+        self.cancel_reschedule_timer(room_name)
+
+        if not self.master_switch_enabled() or \
+           not self.schedule_switch_enabled(room_name):
+            return
+
+        room = self.cfg["rooms"][room_name]
+        if reschedule_delay is None:
+            reschedule_delay = room["reschedule_delay"]
+
+        temp = self.current_temps.get(room_name)
+        if reschedule_delay and temp != self.get_scheduled_temp(room_name):
+            self.cancel_reschedule_timer(room_name)
+            # delay is expected to be in seconds by AppDaemon, but given
+            # to Heaty as minutes
+            delay = 60 * room["reschedule_delay"]
+            if self.cfg["debug"]:
+                self.log("--- [{}] Registering re-schedule timer in "
+                         "{} seconds."
+                         .format(room["friendly_name"], delay))
+            timer = self.run_in(self.reschedule_timer_cb, delay,
+                                room_name=room_name)
+            self.reschedule_timers[room_name] = timer
+
     def cancel_reschedule_timer(self, room_name):
         """Cancels the reschedule timer for the given room, if one
            exists. True is returned if a timer has been cancelled,
            False otherwise."""
+
         try:
             timer = self.reschedule_timers.pop(room_name)
         except KeyError:
             return False
+
         if self.cfg["debug"]:
             room = self.cfg["rooms"][room_name]
             self.log("--- [{}] Cancelling re-schedule timer."
