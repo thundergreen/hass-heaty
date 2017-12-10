@@ -489,31 +489,6 @@ class Heaty(appapi.AppDaemon):
             return True
         return False
 
-    def eval_temp_expr(self, temp_expr):
-        """This method evaluates the given temperature expression.
-           The evaluation result is returned."""
-
-        parsed = util.parse_temp(temp_expr)
-        if parsed:
-            # not an expression, just return the parsed value
-            return parsed
-
-        # this is a dynamic temperature expression, evaluate it
-        env = {"app": self, "now": datetime.datetime.now()}
-        env.update(TIME_EXPRESSION_ENV)
-        temp = eval(temp_expr, env)
-
-        if temp is None:
-            # None is a special case, pass it through
-            return
-
-        parsed = util.parse_temp(temp)
-        if not parsed:
-            raise ValueError("{} is no valid temperature"
-                             .format(repr(parsed)))
-
-        return parsed
-
     def master_switch_enabled(self):
         """Returns the state of the master switch or True if no master
            switch is configured."""

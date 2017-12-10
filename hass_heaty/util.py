@@ -2,6 +2,7 @@
 Utility functions that are used everywhere inside Heaty.
 """
 
+import datetime
 import re
 
 
@@ -41,9 +42,9 @@ def build_time_expression_env():
     """This function builds and returns an environment usable as globals
        for the evaluation of a time expression."""
     return {
-            "datetime": datetime,
-            "now": datetime.datetime.now(),
-           }
+        "datetime": datetime,
+        "now": datetime.datetime.now(),
+    }
 
 def eval_temp_expr(temp_expr, extra_env=None):
     """This method evaluates the given temperature expression.
