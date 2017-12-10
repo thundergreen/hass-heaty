@@ -297,9 +297,8 @@ class Heaty(appapi.AppDaemon):
                  .format(room["friendly_name"], repr(temp)))
         if len(room["thermostats"]) > 1 and \
            room["replicate_changes"] and self.master_switch_enabled():
-            if self.cfg["debug"]:
-                self.log("<-- [{}] Propagating the change to all "
-                         "thermostats.".format(room["friendly_name"]))
+            self.log("<-- [{}] Propagating the change to all thermostats "
+                     "in the room.".format(room["friendly_name"]))
             self.set_temp(room_name, temp, scheduled=False)
         else:
             # just update the records
@@ -577,14 +576,16 @@ class Heaty(appapi.AppDaemon):
         temp = self.current_temps.get(room_name)
         if reschedule_delay and temp != self.get_scheduled_temp(room_name):
             self.cancel_reschedule_timer(room_name)
+            when = self.datetime() + \
+                   datetime.timedelta(minutes=reschedule_delay)
+            self.log("--- [{}] Re-scheduling not before {} ({} minutes)."
+                     .format(room["friendly_name"],
+                             util.format_time(when.time()),
+                             reschedule_delay))
             # delay is expected to be in seconds by AppDaemon, but given
             # to Heaty as minutes
-            delay = 60 * room["reschedule_delay"]
-            if self.cfg["debug"]:
-                self.log("--- [{}] Registering re-schedule timer in "
-                         "{} seconds."
-                         .format(room["friendly_name"], delay))
-            timer = self.run_in(self.reschedule_timer_cb, delay,
+            timer = self.run_in(self.reschedule_timer_cb,
+                                60 * reschedule_delay,
                                 room_name=room_name)
             self.reschedule_timers[room_name] = timer
 

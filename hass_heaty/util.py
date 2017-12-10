@@ -6,9 +6,14 @@ import datetime
 import re
 
 
+# set containing numbers 1-7, used as representation of Mon - Sun
 ALL_WEEKDAYS = set(range(1, 8))
+# regexp pattern matching a range like 3-7 without spaces
 RANGE_PATTERN = re.compile(r"^(\d+)\-(\d+)$")
+# regexp pattern matching military time format (%H:%M)
 TIME_PATTERN = re.compile(r"^([01]\d|2[0123])\:([012345]\d)$")
+# strftime-compatible format string for military time
+TIME_FORMAT = "%H:%M"
 
 
 def expand_range_string(range_string):
@@ -24,6 +29,11 @@ def expand_range_string(range_string):
         else:
             numbers.add(int(part))
     return numbers
+
+def format_time(when, format_str=TIME_FORMAT):
+    """Returns a string representing the given datetime.time object.
+       If no strftime-compatible format is provided, the default is used."""
+    return when.strftime(format_str)
 
 def parse_temp(temp):
     """Converts the given value to a valid temperature of type float or "off".
