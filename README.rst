@@ -29,15 +29,30 @@ Or clone the GitHub repository to get even the latest changes:
     pip3 install . --upgrade
 
 
+A note for hass.io users
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+As far as I know, it's not possible to create a plug & play add-on for
+hass.io containing Heaty, because it needs to be installed into
+AppDaemon's container.
+
+Even though it's untested, the only actions needed in order to install
+under hass.io are:
+
+1. Install the appdaemon add-on.
+2. Copy the ``hass_heaty`` folder and the file ``heaty_app.py`` into
+   the ``apps`` directory of your AppDaemon container. This is also the
+   only thing you need to do when upgrading to a newer version of Heaty.
+3. Continue with the configuration as normal.
+
+
 Configuration
 -------------
 
 1. Get yourself a nice cup of coffee or tea. You'll surely need it.
-
 2. Copy the file ``heaty_app.py`` to your AppDaemon's ``apps`` directory.
    This is just a stub that imports the real app's code, making later
    upgrades a little easier.
-
 3. Copy the contents of ``apps.yaml.example`` to your ``apps.yaml`` file
    and adapt it as necessary. The example file also contains documentation
    comments explaining what the different settings mean.
@@ -46,7 +61,6 @@ Configuration
    extend your configuration later, since there is really a lot you can do
    if you want. But don't worry, the minimal configuration will probably
    do just fine for now.
-
 4. AppDaemon should have noticed the changes made to ``apps.yaml`` and
    restart its apps automatically.
 
