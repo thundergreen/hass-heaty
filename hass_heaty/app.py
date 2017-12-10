@@ -172,7 +172,7 @@ class Heaty(appapi.AppDaemon):
         self.cancel_reschedule_timer(room_name)
         self.set_scheduled_temp(room_name)
 
-    def reschedule_event_cb(self, event, data, kwargs):
+    def reschedule_event_cb(self, event, data):
         """This callback executes when a heaty_reschedule event is received.
            data may contain a "room_name", which limits the re-scheduling
            to the given room."""
@@ -204,7 +204,7 @@ class Heaty(appapi.AppDaemon):
         for room_name in self.cfg["rooms"]:
             self.set_scheduled_temp(room_name)
 
-    def set_temp_event_cb(self, event, data, kwargs):
+    def set_temp_event_cb(self, event, data):
         """This callback executes when a heaty_set_temp event is received.
            data must contain a "room_name" and a "temp", which may also
            be a temperature expression. "force_resend" is optional and
