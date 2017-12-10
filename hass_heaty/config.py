@@ -101,9 +101,9 @@ def parse_config(cfg):
     # Yes, this is dirty, but the values we get from yaml can contain
     # None where we expect a dictionary to be.
     # jsonschema can't initialize dicts as values of additionalProperties.
-    patch_if_none(cfg, "schedule_entities", {})
-    for key in cfg["schedule_entities"]:
-        patch_if_none(cfg["schedule_entities"], key, {})
+    patch_if_none(cfg, "reschedule_entities", {})
+    for key in cfg["reschedule_entities"]:
+        patch_if_none(cfg["reschedule_entities"], key, {})
     patch_if_none(cfg, "thermostat_defaults", {})
     patch_if_none(cfg, "window_sensor_defaults", {})
     patch_if_none(cfg, "rooms", {})

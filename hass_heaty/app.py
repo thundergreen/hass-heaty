@@ -14,7 +14,7 @@ from . import __version__, config, util
 __all__ = ["Heaty"]
 
 
-SCHEDULE_ENTITY_DELAY = 5
+RESCHEDULE_ENTITY_DELAY = 5
 
 
 class Heaty(appapi.AppDaemon):
@@ -85,13 +85,14 @@ class Heaty(appapi.AppDaemon):
                 self.run_daily(self.schedule_cb, daytime, room_name=room_name)
 
         if self.cfg["debug"]:
-            self.log("--- Registering state listeners for schedule entities.")
-        for entity_name in self.cfg["schedule_entities"]:
+            self.log("--- Registering state listeners for re-schedule "
+                     "entities.")
+        for entity_name in self.cfg["reschedule_entities"]:
             if self.cfg["debug"]:
                 self.log("--- Registering state listener for {}, delay {}."
-                         .format(entity_name, SCHEDULE_ENTITY_DELAY))
-            self.listen_state(self.schedule_entity_state_cb, entity_name,
-                              duration=SCHEDULE_ENTITY_DELAY)
+                         .format(entity_name, RESCHEDULE_ENTITY_DELAY))
+            self.listen_state(self.reschedule_entity_state_cb, entity_name,
+                              duration=RESCHEDULE_ENTITY_DELAY)
 
         if self.cfg["debug"]:
             self.log("--- Registering thermostat state listeners.")
@@ -191,16 +192,18 @@ class Heaty(appapi.AppDaemon):
             room = self.cfg["rooms"][room_name]
             self.log("--- [{}] Re-schedule event received."
                      .format(room["friendly_name"]))
-#            self.cancel_reschedule_timer(room_name)
+            self.cancel_reschedule_timer(room_name)
             self.set_scheduled_temp(room_name)
 
-    def schedule_entity_state_cb(self, entity, attr, old, new, kwargs):
+    def reschedule_entity_state_cb(self, entity, attr, old, new, kwargs):
         """Is called when the value of an entity changes that is part
            of a dynamic schedule.
            This method runs set_scheduled_temp for all rooms to refresh
            the temperatures."""
+
         if self.cfg["debug"]:
             self.log("--- Re-computing temperatures in all rooms.")
+
         for room_name in self.cfg["rooms"]:
             self.set_scheduled_temp(room_name)
 
@@ -539,10 +542,15 @@ class Heaty(appapi.AppDaemon):
 
     def eval_temp_expr(self, temp_expr, extra_env=None):
         """This is a wrapper around util.eval_temp_expr that adds the
-           app object to the evaluation environment."""
+           app object and some helpers to the evaluation environment."""
         if extra_env is None:
             extra_env = {}
         extra_env.setdefault("app", self)
+        # use date/time provided by appdaemon to support time-traveling
+        now = self.datetime()
+        extra_env.setdefault("now", now)
+        extra_env.setdefault("date", now.date())
+        extra_env.setdefault("time", now.time())
         return util.eval_temp_expr(temp_expr, extra_env=extra_env)
 
     def update_reschedule_timer(self, room_name, reschedule_delay=None):

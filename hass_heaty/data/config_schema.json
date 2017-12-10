@@ -14,7 +14,7 @@
 				{ "type": "null" }
 			]
 		},
-		"schedule_entity": {
+		"reschedule_entity": {
 			"type": "object"
 		},
 		"thermostat": {
@@ -86,9 +86,9 @@
 		"master_switch": { "$ref": "#/definitions/optional_entity_name", "default": null },
 		"master_controls_schedule_switches": { "type": "boolean", "default": true },
 		"off_temp": { "$ref": "#/definitions/temperature", "default": "off" },
-		"schedule_entities": {
+		"reschedule_entities": {
 			"type": "object",
-			"additionalProperties": { "$ref": "#/definitions/schedule_entity" }
+			"additionalProperties": { "$ref": "#/definitions/reschedule_entity" }
 		},
 		"thermostat_defaults": { "$ref": "#/definitions/thermostat" },
 		"window_sensor_defaults": { "$ref": "#/definitions/window_sensor" },

@@ -43,7 +43,6 @@ def build_time_expression_env():
        for the evaluation of a time expression."""
     return {
         "datetime": datetime,
-        "now": datetime.datetime.now(),
     }
 
 def eval_temp_expr(temp_expr, extra_env=None):
