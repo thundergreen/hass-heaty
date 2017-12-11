@@ -243,8 +243,8 @@ heaty_full:
 
       # Let's have it a bit warmer at Christmas Eve.
       # Here is another interesting thing you can do with time expressions.
-      # If such an expression evaluates to "ignore", it is treated as if it
+      # If such an expression evaluates to IGNORE, it is treated as if it
       # doesn't exist at all. You can use this behaviour to create rules
       # that are only valid for a specific date range, for instance.
-      - 1-7; 18:00 = 22 if date == datetime.date(2017, 12, 24) else "ignore"
-      - 1-7; 23:59 = 20 if date == datetime.date(2017, 12, 24) else "ignore"
+      - 1-7; 18:00 = 22 if date == datetime.date(2017, 12, 24) else IGNORE
+      - 1-7; 23:59 = 20 if date == datetime.date(2017, 12, 24) else IGNORE

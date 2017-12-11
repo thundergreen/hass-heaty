@@ -14,6 +14,8 @@ RANGE_PATTERN = re.compile(r"^(\d+)\-(\d+)$")
 TIME_PATTERN = re.compile(r"^([01]\d|2[0123])\:([012345]\d)$")
 # strftime-compatible format string for military time
 TIME_FORMAT = "%H:%M"
+# special return value for temperature expressions
+TEMP_EXPR_IGNORE = "ignore"
 
 
 def expand_range_string(range_string):
@@ -52,6 +54,7 @@ def build_time_expression_env():
     """This function builds and returns an environment usable as globals
        for the evaluation of a time expression."""
     return {
+        "IGNORE":   TEMP_EXPR_IGNORE,
         "datetime": datetime,
     }
 
@@ -59,8 +62,8 @@ def eval_temp_expr(temp_expr, extra_env=None):
     """This method evaluates the given temperature expression.
        The evaluation result is returned. The items of the extra_env
        dict are added to the globals available during evaluation.
-       The result is either None, "ignore" or a valid temperature value
-       as returned by parse_temp()."""
+       The result is either TEMP_EXPR_IGNORE or a valid temperature
+       value as returned by parse_temp()."""
 
     parsed = parse_temp(temp_expr)
     if parsed:
@@ -73,9 +76,9 @@ def eval_temp_expr(temp_expr, extra_env=None):
         env.update(extra_env)
     temp = eval(temp_expr, env)
 
-    if temp in (None, "ignore"):
-        # None and "ignore" are special cases, pass it through
-        return
+    if temp == TEMP_EXPR_IGNORE:
+        # IGNORE is a special case, pass it through
+        return temp
 
     parsed = parse_temp(temp)
     if not parsed:

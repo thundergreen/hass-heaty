@@ -108,10 +108,10 @@ Temperature expressions must evaluate to one of the following values:
 * a ``float`` or ``int`` which is used as the temperature,
 * a ``str`` containing a number, which is converted to a ``float``
   automatically for convenience,
-* the string ``"off"``, which means just that,
-* the string ``"ignore"``, which causes the rule to be ignored and,
-  if one exists, the next older one to be evaluated or
-* the value ``None``, which simply means no change to the temperature.
+* the string ``"off"``, which means just that or
+* the value ``IGNORE`` (not the string), which causes the rule to
+  be treated as if it doesn't exist at all. If one exists, the next
+  older rule is evaluated in this case.
 
 There is an object available under the name ``app`` which represents
 the ``appdaemon.appapi.AppDaemon`` object of Heaty. You could,
@@ -125,6 +125,8 @@ The following variables are available inside time expressions:
 * ``now``: a ``datetime.datetime`` object containing the current date and time
 * ``date``: a shortcut for ``now.date()``
 * ``time``: a shortcut for ``now.time()``
+* ``IGNORE``: the special return value which causes the expression to be
+  ignored (see above)
 
 Examples on how to use temperature expressions are coming soon.
 

@@ -448,7 +448,8 @@ class Heaty(appapi.AppDaemon):
     def get_scheduled_temp(self, room_name):
         """Computes and returns the temperature that is configured for
            the current time in the given room. If no temperature could
-           be found in the schedule, None is returned."""
+           be found in the schedule (e.g. all rules evaluate to IGNORE),
+           None is returned."""
 
         room = self.cfg["rooms"][room_name]
         when = datetime.datetime.now()
@@ -479,7 +480,7 @@ class Heaty(appapi.AppDaemon):
                          .format(room["friendly_name"], repr(temp_expr[1]),
                                  temp))
 
-            if temp == "ignore":
+            if temp == util.TEMP_EXPR_IGNORE:
                 # skip this rule
                 if self.cfg["debug"]:
                     self.log("--- [{}] Skipping this rule."
@@ -504,13 +505,18 @@ class Heaty(appapi.AppDaemon):
         room = self.cfg["rooms"][room_name]
 
         temp = self.get_scheduled_temp(room_name)
-        if temp is not None:
-            if self.current_temps[room_name] != temp or force_resend:
-                self.set_temp(room_name, temp, scheduled=True)
-            elif self.cfg["debug"]:
-                self.log("--- [{}] Not setting temperature to {} "
-                         "redundantly."
-                         .format(room["friendly_name"], temp))
+        if temp is None:
+            if self.cfg["debug"]:
+                self.log("--- [{}] No suitable temperature found in schedule."
+                         .format(room["friendly_name"]))
+            return
+
+        if self.current_temps[room_name] != temp or force_resend:
+            self.set_temp(room_name, temp, scheduled=True)
+        elif self.cfg["debug"]:
+            self.log("--- [{}] Not setting temperature to {} "
+                     "redundantly."
+                     .format(room["friendly_name"], temp))
 
     def set_manual_temp(self, room_name, temp_expr, force_resend=False,
                         reschedule_delay=None):
@@ -534,7 +540,7 @@ class Heaty(appapi.AppDaemon):
                      .format(room["friendly_name"], repr(temp_expr),
                              repr(temp)))
 
-        if temp in (None, "ignore"):
+        if temp == util.TEMP_EXPR_IGNORE:
             self.log("--- [{}] Ignoring temperature expression."
                      .format(room["friendly_name"]))
             return
