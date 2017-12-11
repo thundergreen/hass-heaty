@@ -90,6 +90,107 @@ automatically and needs to be restarted manually after an upgrade.
 **When upgrading from v0.2.0,** please do also upgrade ``heaty_app.py``.
 
 
+Writing schedules
+-----------------
+
+A schedule controls the temperature in a room over time. It consists
+of a set of rules.
+
+Each rule must define a temperature:
+
+::
+
+    schedule:
+    - temp: 16
+
+This schedule would just always set the temperature to ``16``
+degrees, nothing else. Of course, schedules wouldn't make a lot
+sense if they couldn't do more than that.
+
+Basic scheduling based on time of the day
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Here is another one:
+
+::
+
+    schedule:
+    - temp: 21.5
+      start: "07:00"
+      end: "22:00"
+
+    - temp: 16
+
+This schedule contains the same rule as the schedule before, but
+additionally, it got a new one. The new rule overwrites the other
+and will set a temperature of ``21.5`` degrees, but only from 7.00 am
+to 10.00 pm. This is because it's placed before the ``16``-degrees-rule.
+That is how Heaty schedules work. The first matching rule wins.
+
+If you omit the ``start`` parameter, Heaty assumes that you mean
+midnight (``00:00``) and fills that in for you.
+
+When ``end`` is not specified, Heaty does two things. First, it sets
+``00:00`` as value for ``end``. This alone wouldn't make sense,
+because the resulting rule would stop being valid before it started.
+To achieve the behaviour we'd expect, Heaty sets another attribute,
+``end_plus_days: 1``. This means that the rule is valid up to the
+time specified in the ``end`` field, but one day later than the
+start. Cool, right?
+
+Having done the same manually would result in the following schedule,
+which behaves exactly like the previous one.
+
+::
+
+    schedule:
+    - temp: 21.5
+      start: "07:00"
+      end: "22:00"
+
+    - temp: 16
+      start: "00:00"
+      end: "00:00"
+      end_plus_days: 1
+
+Now we have covered the basics, but we can't create schedules based
+on, for instance, the days of the week. Let's do that next.
+
+Constraints
+~~~~~~~~~~~
+
+::
+
+    schedule:
+    - temp: 22
+      weekdays: 1-5
+      start: "07:00"
+      end: "22:00"
+
+    - temp: 22
+      weekdays: 6,7
+      start: "07:45"
+
+    - temp: 15
+
+With your knowledge so far, this should be self-explanatory. The only
+new parameter is ``weekdays``, which is a so called constraint.
+
+Constraints can be used to limit the days on which the rule is
+considered. There are a number of these constraints, namely:
+
+* ``years``: limit the years (e.g. ``years: 2016 - 2018``
+* ``months``: limit based on months of the year (e.g.
+  ``months: 1-3, 10-12`` for Jan, Feb, Mar, Oct, Nov and Dec)
+* ``days``: limit based on days of the month (e.g.
+  ``days: 1-15`` for the first half)
+* ``weeks``: limit based on the weeks of the year
+* ``weekdays``: limit based on the days of the week, from 1 (Monday)
+  to 7 (Sunday)
+
+All constraints you define need to be fulfilled for the rule to match.
+
+
 Temperature Expressions
 -----------------------
 

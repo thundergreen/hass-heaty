@@ -78,10 +78,7 @@ class Heaty(appapi.AppDaemon):
         for room_name, room in self.cfg["rooms"].items():
             times = set()
             for rule in room["schedule"].rules:
-                _times = [rule.start_time]
-                if rule.end_time is not None:
-                    _times.append(rule.end_time)
-                for _time in _times:
+                for _time in (rule.start_time, rule.end_time):
                     # run 1 second later to avoid race condition, probably
                     # not needed, but it doesn't hurt either
                     _time = datetime.datetime.combine(
@@ -90,7 +87,7 @@ class Heaty(appapi.AppDaemon):
                     _time += datetime.timedelta(seconds=1)
                     _time = _time.time()
                     # we collect the times in a set first to avoid registering
-                    # two timers for the same time
+                    # multiple timers for the same time
                     times.add(_time)
             for _time in times:
                 if self.cfg["debug"]:
@@ -466,8 +463,7 @@ class Heaty(appapi.AppDaemon):
 
         room = self.cfg["rooms"][room_name]
 
-        for slot in room["schedule"].get_slots(self.datetime()):
-            rule = slot[2]
+        for rule in room["schedule"].get_rules(self.datetime()):
             temp = self.eval_temp_expr(rule.temp_expr)
             if self.cfg["debug"]:
                 self.log("--- [{}] Evaluated temperature expression {} "

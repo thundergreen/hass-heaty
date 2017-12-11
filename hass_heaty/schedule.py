@@ -1,6 +1,5 @@
 """
-This module implements the Schedule and Rule classes as well as some
-related constants.
+This module implements the Schedule and Rule classes.
 """
 
 import datetime
@@ -8,21 +7,21 @@ import datetime
 from . import util
 
 
-MIN_RETROSPECT = datetime.timedelta(days=1)
-RETROSPECT = datetime.timedelta(days=7)
-REBUILD_INTERVAL = datetime.timedelta(days=1)
-
-
 class Rule:
     """A rule that can be added to a schedule."""
 
     def __init__(self, temp_expr, start_time=None, end_time=None,
-                 constraints=None):
+                 end_plus_days=0, constraints=None):
         if start_time is None:
             # make it midnight
             start_time = datetime.time(0, 0)
         self.start_time = start_time
+        if end_time is None:
+            # make it midnight (00:00 of the next day)
+            end_time = datetime.time(0, 0)
+            end_plus_days += 1
         self.end_time = end_time
+        self.end_plus_days = end_plus_days
         if constraints is None:
             constraints = {}
         self.constraints = constraints
@@ -60,61 +59,41 @@ class Rule:
 class Schedule:
     """Holds the schedule for a room with all its rules."""
 
-    def __init__(self, retrospect=None):
+    def __init__(self):
         self.rules = []
-        self._slots = []
-        self._last_build = None
-        if retrospect is None:
-            retrospect = RETROSPECT
-        if retrospect < MIN_RETROSPECT:
-            raise ValueError("minimum retrospect is {}."
-                             .format(MIN_RETROSPECT))
-        self.retrospect = retrospect
 
-    def _build_slots(self, when=None, force=False):
-        if when is None:
-            when = datetime.datetime.now()
+    def get_rules(self, when):
+        """Returns an iterator over all rules of the schedule that are
+           valid for the given datetime object, keeping the order from
+           the rules list."""
 
-        if not force and self._last_build is not None and \
-           when - self._last_build < REBUILD_INTERVAL:
-            # nothing to do
-            return self._slots
+        _time = when.time()
+        for rule in self.rules:
+            days_back = -1
+            found_start_day = False
+            while days_back < rule.end_plus_days:
+                days_back += 1
+                # starts with days=0 (meaning the current date)
+                _date = when.date() - datetime.timedelta(days=days_back)
 
-        slots = []
-        current_date = when.date()
-        # add REBUILD_INTERVAL to ensure that even at the end of a
-        # schedule's lifecycle enough buffer is available
-        end_date = current_date - self.retrospect - REBUILD_INTERVAL
+                found_start_day = found_start_day or \
+                                  rule.check_constraints(_date)
+                if not found_start_day:
+                    # try next day
+                    continue
 
-        while current_date >= end_date:
-            for rule in self.rules:
-                if rule.check_constraints(current_date):
-                    slot = (
-                        datetime.datetime.combine(
-                            current_date, rule.start_time
-                        ),
-                        datetime.datetime.combine(
-                            current_date, rule.end_time
-                        ) if rule.end_time is not None else None,
-                        rule,
-                    )
-                    slots.append(slot)
-            current_date = current_date - datetime.timedelta(days=1)
+                # in first loop run, rule has to start today and not
+                # later than now (rule start <= when.time())
+                if days_back == 0 and rule.start_time > _time:
+                    # maybe there is a next day to try out
+                    continue
 
-        # sort slots from latest to oldest
-        slots.sort(key=lambda slot: slot[0], reverse=True)
+                # in last loop run, rule is going to end today and that
+                # has to be later than now (rule end > when.time())
+                if days_back == rule.end_plus_days and rule.end_time <= _time:
+                    # rule finally disqualified
+                    break
 
-        self._slots = slots
-        self._last_build = when
-        return slots
-
-    def get_slots(self, when):
-        """Returns an iterable of slots sorted from latest to oldest.
-           It is guaranteed that no slot is starting later than the
-           provided datetime requests. Slots that have ended are
-           sorted out. The iterable may be empty."""
-
-        slots = self._build_slots(when=when)
-        return filter(lambda slot: slot[0] <= when and
-                      (slot[1] is None or slot[1] > when),
-                      slots)
+                # rule matches!
+                yield rule
+                break

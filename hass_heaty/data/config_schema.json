@@ -89,8 +89,9 @@
 					"type": "object",
 					"properties": {
 						"temp": { "$ref": "#/definitions/temp_expr" },
-						"start_time": { "$ref": "#/definitions/time_string" },
-						"end_time": { "$ref": "#/definitions/time_string" },
+						"start": { "$ref": "#/definitions/time_string" },
+						"end": { "$ref": "#/definitions/time_string" },
+						"end_plus_days": { "type": "integer", "min": 0, "default": 0 },
 						"years": { "$ref": "#/definitions/range_string" },
 						"months": { "$ref": "#/definitions/range_string" },
 						"days": { "$ref": "#/definitions/range_string" },
