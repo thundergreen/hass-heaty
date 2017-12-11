@@ -1,5 +1,6 @@
 [pylint]
 disable =
-    eval-used
+    eval-used,
+    too-few-public-methods
 max-args = 6
 max-branches = 15

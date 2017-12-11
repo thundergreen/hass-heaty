@@ -9,7 +9,7 @@ import os
 
 from jsonschema import Draft4Validator, validators
 
-from . import util
+from . import schedule, util
 
 
 SCHEMA_FILE = os.path.join(
@@ -135,7 +135,7 @@ def parse_config(cfg):
                 sensor.setdefault(key, val)
 
         # build schedule
-        slots = []
+        sched = schedule.Schedule()
         for rule in room["schedule"]:
             spl = rule.strip().split(";")
             weekdays = util.expand_range_string("".join(spl[0].split()))
@@ -146,14 +146,10 @@ def parse_config(cfg):
                 assert match is not None
                 daytime = datetime.time(int(match.group(1)),
                                         int(match.group(2)))
-                temp_str = "".join(spl[1].split())
-                temp = util.parse_temp(temp_str)
-                if temp is None:
-                    # this is a temperature expression, precompile it
-                    temp_str = spl[1].strip()
-                    temp = compile(temp_str, "temp_expr", "eval")
-                slot = (weekdays, daytime, (temp, temp_str))
-                slots.append(slot)
-            room["schedule"] = slots
+                temp_expr = spl[1]
+                rule = schedule.Rule(temp_expr=temp_expr, daytime=daytime,
+                                     weekdays=weekdays)
+                sched.rules.append(rule)
+            room["schedule"] = sched
 
     return cfg

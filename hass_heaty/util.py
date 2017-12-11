@@ -6,8 +6,6 @@ import datetime
 import re
 
 
-# set containing numbers 1-7, used as representation of Mon - Sun
-ALL_WEEKDAYS = set(range(1, 8))
 # regexp pattern matching a range like 3-7 without spaces
 RANGE_PATTERN = re.compile(r"^(\d+)\-(\d+)$")
 # regexp pattern matching military time format (%H:%M)
@@ -39,9 +37,11 @@ def format_time(when, format_str=TIME_FORMAT):
 
 def parse_temp(temp):
     """Converts the given value to a valid temperature of type float or "off".
+       If value is a string, all whitespace is removed first.
        If conversion is not possible, None is returned."""
 
     if isinstance(temp, str):
+        temp = "".join(temp.split())
         if temp.lower() == "off":
             return "off"
         temp = temp.strip()

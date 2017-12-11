@@ -33,7 +33,7 @@ class Heaty(appapi.AppDaemon):
            event callbacks and sets temperatures in all rooms according
            to the configured schedules."""
 
-        # pylint: disable=too-many-branches,too-many-statements
+        # pylint: disable=too-many-branches,too-many-locals,too-many-statements
 
         self.log("--- Heaty v{} initialization started.".format(__version__))
 
@@ -76,10 +76,12 @@ class Heaty(appapi.AppDaemon):
         if self.cfg["debug"]:
             self.log("--- Creating schedule timers.")
         for room_name, room in self.cfg["rooms"].items():
-            for slot in room["schedule"]:
+            for rule in room["schedule"].rules:
                 # run 1 second later to guarantee there is no race condition
-                daytime = datetime.time(slot[1].hour, slot[1].minute,
-                                        slot[1].second + 1)
+                when = datetime.datetime.combine(datetime.date.today(),
+                                                 rule.daytime)
+                when += datetime.timedelta(seconds=1)
+                daytime = when.time()
                 if self.cfg["debug"]:
                     self.log("--- [{}] Registering timer at {}."
                              .format(room["friendly_name"], daytime))
@@ -452,35 +454,16 @@ class Heaty(appapi.AppDaemon):
            None is returned."""
 
         room = self.cfg["rooms"][room_name]
-        when = datetime.datetime.now()
-        weekday = when.isoweekday()
-        current_time = when.time()
-        _time = current_time
-        checked_weekdays = set()
-        found_slots = []
-        # sort slots by time in descending order
-        slots = list(room["schedule"])
-        slots.sort(key=lambda a: a[1], reverse=True)
 
-        while len(checked_weekdays) < len(util.ALL_WEEKDAYS):
-            for slot in slots:
-                if weekday in slot[0] and slot[1] <= _time:
-                    found_slots.append(slot)
-            _time = datetime.time(23, 59, 59)
-            checked_weekdays.add(weekday)
-            # go one day backwards
-            weekday = (weekday - 2) % 7 + 1
-
-        for slot in found_slots:
-            temp_expr = slot[2]
-            temp = self.eval_temp_expr(temp_expr[0])
+        for when, rule in room["schedule"].get_slots(self.datetime()):  # pylint: disable=unused-variable
+            temp = self.eval_temp_expr(rule.temp_expr)
             if self.cfg["debug"]:
                 self.log("--- [{}] Evaluated temperature expression {} "
                          "to {}."
-                         .format(room["friendly_name"], repr(temp_expr[1]),
-                                 temp))
+                         .format(room["friendly_name"],
+                                 repr(rule.temp_expr_raw), temp))
 
-            if temp == util.TEMP_EXPR_IGNORE:
+            if temp in (None, util.TEMP_EXPR_IGNORE):
                 # skip this rule
                 if self.cfg["debug"]:
                     self.log("--- [{}] Skipping this rule."
@@ -540,7 +523,7 @@ class Heaty(appapi.AppDaemon):
                      .format(room["friendly_name"], repr(temp_expr),
                              repr(temp)))
 
-        if temp == util.TEMP_EXPR_IGNORE:
+        if temp in (None, util.TEMP_EXPR_IGNORE):
             self.log("--- [{}] Ignoring temperature expression."
                      .format(room["friendly_name"]))
             return
@@ -557,16 +540,26 @@ class Heaty(appapi.AppDaemon):
 
     def eval_temp_expr(self, temp_expr, extra_env=None):
         """This is a wrapper around util.eval_temp_expr that adds the
-           app object and some helpers to the evaluation environment."""
+           app object and some helpers to the evaluation environment.
+           It also catches ValueError which is raised by
+           util.eval_temp_expr in case the expression evaluates to an
+           invalid result. In this case, None is returned"""
+
         if extra_env is None:
             extra_env = {}
+
         extra_env.setdefault("app", self)
         # use date/time provided by appdaemon to support time-traveling
         now = self.datetime()
         extra_env.setdefault("now", now)
         extra_env.setdefault("date", now.date())
         extra_env.setdefault("time", now.time())
-        return util.eval_temp_expr(temp_expr, extra_env=extra_env)
+
+        try:
+            return util.eval_temp_expr(temp_expr, extra_env=extra_env)
+        except ValueError as err:
+            self.log("!!! Error while evaluating temperature expression: {}"
+                     .format(err))
 
     def update_reschedule_timer(self, room_name, reschedule_delay=None):
         """This method cancels an existing re-schedule timer first.
