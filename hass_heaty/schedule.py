@@ -8,10 +8,8 @@ import datetime
 from . import util
 
 
-# set containing numbers 1-7, used as representation of Mon - Sun
-ALL_WEEKDAYS = set(range(1, 8))
-
-MIN_RETROSPECT = datetime.timedelta(weeks=1)
+MIN_RETROSPECT = datetime.timedelta(days=1)
+RETROSPECT = datetime.timedelta(days=7)
 REBUILD_INTERVAL = datetime.timedelta(days=1)
 
 
@@ -66,7 +64,7 @@ class Schedule:
         self._slots = []
         self._last_build = None
         if retrospect is None:
-            retrospect = MIN_RETROSPECT
+            retrospect = RETROSPECT
         if retrospect < MIN_RETROSPECT:
             raise ValueError("minimum retrospect is {}."
                              .format(MIN_RETROSPECT))
@@ -81,8 +79,6 @@ class Schedule:
             # nothing to do
             return
 
-        # sort rules by time in descending order
-#        self.rules.sort(key=lambda rule: rule[1], reverse=True)
         slots = []
         current_date = when.date()
         # add REBUILD_INTERVAL to ensure that even at the end of a
