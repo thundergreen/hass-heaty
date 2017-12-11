@@ -183,12 +183,30 @@ considered. There are a number of these constraints, namely:
 * ``months``: limit based on months of the year (e.g.
   ``months: 1-3, 10-12`` for Jan, Feb, Mar, Oct, Nov and Dec)
 * ``days``: limit based on days of the month (e.g.
-  ``days: 1-15`` for the first half)
+  ``days: 1-15, 22`` for the first half of the month + the 22nd)
 * ``weeks``: limit based on the weeks of the year
 * ``weekdays``: limit based on the days of the week, from 1 (Monday)
   to 7 (Sunday)
 
+The format used to specify values for constraints is as follows.
+We call it range strings, and only integers are supported, no
+decimal values.
+
+* ``x-y``: range of numbers from ``x`` to ``y``, including ``x``
+  and ``y``
+* ``a,b``: numbers ``a`` and ``b``
+* ``a,b,x-y``: the previous two together
+* ... and so on
+* Any spaces are ignored.
+
 All constraints you define need to be fulfilled for the rule to match.
+
+With this knowledge, writing quite powerful Heaty schedules should be
+easy and quick.
+
+The next chapter deals with temperature expressions, which finally
+give you the power to do whatever you can do with Python, right inside
+your schedules.
 
 
 Temperature Expressions
@@ -212,7 +230,7 @@ Temperature expressions must evaluate to one of the following values:
 * the string ``"off"``, which means just that or
 * the value ``IGNORE`` (not the string), which causes the rule to
   be treated as if it doesn't exist at all. If one exists, the next
-  older rule is evaluated in this case.
+  rule is evaluated in this case.
 
 There is an object available under the name ``app`` which represents
 the ``appdaemon.appapi.AppDaemon`` object of Heaty. You could,
