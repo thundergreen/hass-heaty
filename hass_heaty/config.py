@@ -140,44 +140,24 @@ def parse_config(cfg):
         # build schedule
         sched = schedule.Schedule()
         for rule in room["schedule"]:
-            if isinstance(rule, dict):
-                constraints = {}
-                for name, value in rule.items():
-                    if name in RANGE_STRING_CONSTRAINTS:
-                        constraints[name] = util.expand_range_string(value)
-                try:
-                    start_time = rule["start"]
-                    start_time = util.parse_time_string(start_time)
-                    end_time = rule["end"]
-                    end_time = util.parse_time_string(end_time)
-                except KeyError:
-                    start_time = None
-                    end_time = None
-                end_plus_days = rule["end_plus_days"]
-                temp_expr = rule["temp"]
-                rule = schedule.Rule(temp_expr=temp_expr,
-                                     start_time=start_time,
-                                     end_time=end_time,
-                                     end_plus_days=end_plus_days,
-                                     constraints=constraints)
-                sched.rules.append(rule)
-            else:
-                # support for old string format
-                spl = rule.strip().split(";")
-                weekdays = util.expand_range_string("".join(spl[0].split()))
-                for point in spl[1:]:
-                    spl = point.split("=", 1)
-                    assert len(spl) == 2
-                    start_time = util.parse_time_string(spl[0])
-                    assert start_time is not None
-                    temp_expr = spl[1]
-                    constraints = {"weekdays": weekdays}
-                    rule = schedule.Rule(temp_expr=temp_expr,
-                                         start_time=start_time,
-                                         end_plus_days=30,
-                                         constraints=constraints)
-                    sched.rules.append(rule)
-
+            constraints = {}
+            for name, value in rule.items():
+                if name in RANGE_STRING_CONSTRAINTS:
+                    constraints[name] = util.expand_range_string(value)
+            start_time = rule.get("start")
+            if start_time is not None:
+                start_time = util.parse_time_string(start_time)
+            end_time = rule.get("end")
+            if end_time is not None:
+                end_time = util.parse_time_string(end_time)
+            end_plus_days = rule["end_plus_days"]
+            temp_expr = rule["temp"]
+            rule = schedule.Rule(temp_expr=temp_expr,
+                                 start_time=start_time,
+                                 end_time=end_time,
+                                 end_plus_days=end_plus_days,
+                                 constraints=constraints)
+            sched.rules.append(rule)
         room["schedule"] = sched
 
     return cfg

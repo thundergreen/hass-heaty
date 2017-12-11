@@ -83,25 +83,20 @@
 			"items": { "$ref": "#/definitions/schedule_rule" }
 		},
 		"schedule_rule": {
-			"anyOf": [
-				{ "type": "string" },
-				{
-					"type": "object",
-					"properties": {
-						"temp": { "$ref": "#/definitions/temp_expr" },
-						"start": { "$ref": "#/definitions/time_string" },
-						"end": { "$ref": "#/definitions/time_string" },
-						"end_plus_days": { "type": "integer", "min": 0, "default": 0 },
-						"years": { "$ref": "#/definitions/range_string" },
-						"months": { "$ref": "#/definitions/range_string" },
-						"days": { "$ref": "#/definitions/range_string" },
-						"weeks": { "$ref": "#/definitions/range_string" },
-						"weekdays": { "$ref": "#/definitions/range_string" }
-					},
-					"additionalProperties": false,
-					"required": ["temp"]
-				}
-			]
+			"type": "object",
+			"properties": {
+				"temp": { "$ref": "#/definitions/temp_expr" },
+				"start": { "$ref": "#/definitions/time_string" },
+				"end": { "$ref": "#/definitions/time_string" },
+				"end_plus_days": { "type": "integer", "min": 0, "default": 0 },
+				"years": { "$ref": "#/definitions/range_string" },
+				"months": { "$ref": "#/definitions/range_string" },
+				"days": { "$ref": "#/definitions/range_string" },
+				"weeks": { "$ref": "#/definitions/range_string" },
+				"weekdays": { "$ref": "#/definitions/range_string" }
+			},
+			"additionalProperties": false,
+			"required": ["temp"]
 		}
 	},
 
