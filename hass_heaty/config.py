@@ -3,7 +3,6 @@ This module parses and validates the configuration.
 """
 
 import copy
-import datetime
 import json
 import os
 
@@ -146,9 +145,18 @@ def parse_config(cfg):
                 for name, value in rule.items():
                     if name in RANGE_STRING_CONSTRAINTS:
                         constraints[name] = util.expand_range_string(value)
-                time_str = "".join(rule["time"].split())
-                daytime = datetime.time(int(time_str[:2]), int(time_str[-2:]))
+                start_time = rule.get("start_time")
+                if start_time is not None:
+                    start_time = util.parse_time_string(start_time)
+                end_time = rule.get("end_time")
+                if end_time is not None:
+                    end_time = util.parse_time_string(end_time)
                 temp_expr = rule["temp"]
+                rule = schedule.Rule(temp_expr=temp_expr,
+                                     start_time=start_time,
+                                     end_time=end_time,
+                                     constraints=constraints)
+                sched.rules.append(rule)
             else:
                 # support for old string format
                 spl = rule.strip().split(";")
@@ -156,16 +164,15 @@ def parse_config(cfg):
                 for point in spl[1:]:
                     spl = point.split("=", 1)
                     assert len(spl) == 2
-                    match = util.TIME_PATTERN.match("".join(spl[0].split()))
-                    assert match is not None
-                    daytime = datetime.time(int(match.group(1)),
-                                            int(match.group(2)))
+                    start_time = util.parse_time_string(spl[0])
+                    assert start_time is not None
+                    end_time = None
                     temp_expr = spl[1]
                     constraints = {"weekdays": weekdays}
-
-            rule = schedule.Rule(temp_expr=temp_expr, daytime=daytime,
-                                 constraints=constraints)
-            sched.rules.append(rule)
+                    rule = schedule.Rule(temp_expr=temp_expr,
+                                         start_time=start_time,
+                                         constraints=constraints)
+                    sched.rules.append(rule)
 
         room["schedule"] = sched
 

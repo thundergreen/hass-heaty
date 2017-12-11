@@ -16,15 +16,16 @@ REBUILD_INTERVAL = datetime.timedelta(days=1)
 class Rule:
     """A rule that can be added to a schedule."""
 
-    def __init__(self, temp_expr, daytime=None, constraints=None):
-        if daytime is None:
+    def __init__(self, temp_expr, start_time=None, end_time=None,
+                 constraints=None):
+        if start_time is None:
             # make it midnight
-            daytime = datetime.time(0, 0)
-        self.daytime = daytime
-
+            start_time = datetime.time(0, 0)
+        self.start_time = start_time
+        self.end_time = end_time
         if constraints is None:
             constraints = {}
-        self.constraints = {}
+        self.constraints = constraints
 
         if isinstance(temp_expr, str):
             temp_expr = temp_expr.strip()
@@ -70,14 +71,14 @@ class Schedule:
                              .format(MIN_RETROSPECT))
         self.retrospect = retrospect
 
-    def _build(self, when=None, force=False):
+    def _build_slots(self, when=None, force=False):
         if when is None:
             when = datetime.datetime.now()
 
         if not force and self._last_build is not None and \
            when - self._last_build < REBUILD_INTERVAL:
             # nothing to do
-            return
+            return self._slots
 
         slots = []
         current_date = when.date()
@@ -89,21 +90,31 @@ class Schedule:
             for rule in self.rules:
                 if rule.check_constraints(current_date):
                     slot = (
-                        datetime.datetime.combine(current_date, rule.daytime),
+                        datetime.datetime.combine(
+                            current_date, rule.start_time
+                        ),
+                        datetime.datetime.combine(
+                            current_date, rule.end_time
+                        ) if rule.end_time is not None else None,
                         rule,
                     )
                     slots.append(slot)
             current_date = current_date - datetime.timedelta(days=1)
 
         # sort slots from latest to oldest
-        slots.sort(reverse=True)
+        slots.sort(key=lambda slot: slot[0], reverse=True)
 
         self._slots = slots
         self._last_build = when
+        return slots
 
     def get_slots(self, when):
         """Returns an iterable of slots sorted from latest to oldest.
-           It is guaranteed that no slot is determined later than the
-           provided when argument. The iterable may be empty."""
-        self._build(when=when)
-        return filter(lambda slot: slot[0] <= when, self._slots)
+           It is guaranteed that no slot is starting later than the
+           provided datetime requests. Slots that have ended are
+           sorted out. The iterable may be empty."""
+
+        slots = self._build_slots(when=when)
+        return filter(lambda slot: slot[0] <= when and
+                      (slot[1] is None or slot[1] > when),
+                      slots)

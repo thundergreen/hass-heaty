@@ -89,14 +89,16 @@
 					"type": "object",
 					"properties": {
 						"temp": { "$ref": "#/definitions/temp_expr" },
-						"time": { "$ref": "#/definitions/time_string" },
+						"start_time": { "$ref": "#/definitions/time_string" },
+						"end_time": { "$ref": "#/definitions/time_string" },
 						"years": { "$ref": "#/definitions/range_string" },
 						"months": { "$ref": "#/definitions/range_string" },
 						"days": { "$ref": "#/definitions/range_string" },
 						"weeks": { "$ref": "#/definitions/range_string" },
 						"weekdays": { "$ref": "#/definitions/range_string" }
 					},
-					"additionalProperties": false
+					"additionalProperties": false,
+					"required": ["temp"]
 				}
 			]
 		}

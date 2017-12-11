@@ -9,7 +9,7 @@ import re
 # regexp pattern matching a range like 3-7 without spaces
 RANGE_PATTERN = re.compile(r"^(\d+)\-(\d+)$")
 # regexp pattern matching military time format (%H:%M)
-TIME_PATTERN = re.compile(r"^([01]\d|2[0123])\:([012345]\d)$")
+TIME_PATTERN = re.compile(r"^([01]\d|2[0123])[\:\.]([012345]\d)$")
 # strftime-compatible format string for military time
 TIME_FORMAT = "%H:%M"
 # special return value for temperature expressions
@@ -34,6 +34,16 @@ def format_time(when, format_str=TIME_FORMAT):
     """Returns a string representing the given datetime.time object.
        If no strftime-compatible format is provided, the default is used."""
     return when.strftime(format_str)
+
+def parse_time_string(time_str):
+    """Parses a string of the form %H:%M or %H.%M (military time)
+       into a datetime.time object. If the string has an invalid
+       format, None is returned."""
+    # remove whitespace
+    time_str = "".join(time_str.split())
+    match = TIME_PATTERN.match(time_str)
+    if match:
+        return datetime.time(int(match.group(1)), int(match.group(2)))
 
 def parse_temp(temp):
     """Converts the given value to a valid temperature of type float or "off".
