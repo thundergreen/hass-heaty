@@ -12,9 +12,13 @@ from jsonschema import Draft4Validator, validators
 from . import schedule, util
 
 
+# file containing the jsonschema of Heaty's configuration
 SCHEMA_FILE = os.path.join(
     os.path.dirname(__file__), "data", "config_schema.json"
 )
+# all constraints that have values in the range_string format
+# (see util.expand_range_string)
+RANGE_STRING_CONSTRAINTS = ("years", "months", "days", "weeks", "weekdays")
 
 
 def extend_with_default(validator_class):
@@ -137,19 +141,32 @@ def parse_config(cfg):
         # build schedule
         sched = schedule.Schedule()
         for rule in room["schedule"]:
-            spl = rule.strip().split(";")
-            weekdays = util.expand_range_string("".join(spl[0].split()))
-            for point in spl[1:]:
-                spl = point.split("=", 1)
-                assert len(spl) == 2
-                match = util.TIME_PATTERN.match("".join(spl[0].split()))
-                assert match is not None
-                daytime = datetime.time(int(match.group(1)),
-                                        int(match.group(2)))
-                temp_expr = spl[1]
-                rule = schedule.Rule(temp_expr=temp_expr, daytime=daytime,
-                                     weekdays=weekdays)
-                sched.rules.append(rule)
-            room["schedule"] = sched
+            if isinstance(rule, dict):
+                constraints = {}
+                for name, value in rule.items():
+                    if name in RANGE_STRING_CONSTRAINTS:
+                        constraints[name] = util.expand_range_string(value)
+                time_str = "".join(rule["time"].split())
+                daytime = datetime.time(int(time_str[:2]), int(time_str[-2:]))
+                temp_expr = rule["temp"]
+            else:
+                # support for old string format
+                spl = rule.strip().split(";")
+                weekdays = util.expand_range_string("".join(spl[0].split()))
+                for point in spl[1:]:
+                    spl = point.split("=", 1)
+                    assert len(spl) == 2
+                    match = util.TIME_PATTERN.match("".join(spl[0].split()))
+                    assert match is not None
+                    daytime = datetime.time(int(match.group(1)),
+                                            int(match.group(2)))
+                    temp_expr = spl[1]
+                    constraints = {"weekdays": weekdays}
+
+            rule = schedule.Rule(temp_expr=temp_expr, daytime=daytime,
+                                 constraints=constraints)
+            sched.rules.append(rule)
+
+        room["schedule"] = sched
 
     return cfg

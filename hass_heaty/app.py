@@ -541,9 +541,8 @@ class Heaty(appapi.AppDaemon):
     def eval_temp_expr(self, temp_expr, extra_env=None):
         """This is a wrapper around util.eval_temp_expr that adds the
            app object and some helpers to the evaluation environment.
-           It also catches ValueError which is raised by
-           util.eval_temp_expr in case the expression evaluates to an
-           invalid result. In this case, None is returned"""
+           It also catches and logs any exception which is raised
+           during evaluation. In this case, None is returned."""
 
         if extra_env is None:
             extra_env = {}
@@ -557,9 +556,9 @@ class Heaty(appapi.AppDaemon):
 
         try:
             return util.eval_temp_expr(temp_expr, extra_env=extra_env)
-        except ValueError as err:
+        except Exception as err:  # pylint: disable=broad-except
             self.log("!!! Error while evaluating temperature expression: {}"
-                     .format(err))
+                     .format(repr(err)))
 
     def update_reschedule_timer(self, room_name, reschedule_delay=None):
         """This method cancels an existing re-schedule timer first.

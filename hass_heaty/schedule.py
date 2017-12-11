@@ -18,9 +18,15 @@ REBUILD_INTERVAL = datetime.timedelta(days=1)
 class Rule:
     """A rule that can be added to a schedule."""
 
-    def __init__(self, temp_expr, daytime, weekdays):
+    def __init__(self, temp_expr, daytime=None, constraints=None):
+        if daytime is None:
+            # make it midnight
+            daytime = datetime.time(0, 0)
         self.daytime = daytime
-        self.weekdays = weekdays
+
+        if constraints is None:
+            constraints = {}
+        self.constraints = {}
 
         if isinstance(temp_expr, str):
             temp_expr = temp_expr.strip()
@@ -31,6 +37,25 @@ class Rule:
             self.temp_expr = compile(temp_expr, "temp_expr", "eval")
         else:
             self.temp_expr = temp_expr
+
+    def check_constraints(self, date):
+        """Checks all constraints of this rule against the given date."""
+        year, week, weekday = date.isocalendar()
+        for constraint, allowed_values in self.constraints.items():
+            if allowed_values is None:
+                # ignore this one, since None is not iterable
+                continue
+            if constraint == "years" and year not in allowed_values:
+                return False
+            if constraint == "months" and date.year not in allowed_values:
+                return False
+            if constraint == "days" and date.day not in allowed_values:
+                return False
+            if constraint == "week" and week not in allowed_values:
+                return False
+            if constraint == "weekday" and weekday not in allowed_values:
+                return False
+        return True
 
 
 class Schedule:
@@ -65,9 +90,8 @@ class Schedule:
         end_date = current_date - self.retrospect - REBUILD_INTERVAL
 
         while current_date >= end_date:
-            current_weekday = current_date.isoweekday()
             for rule in self.rules:
-                if current_weekday in rule.weekdays:
+                if rule.check_constraints(current_date):
                     slot = (
                         datetime.datetime.combine(current_date, rule.daytime),
                         rule,

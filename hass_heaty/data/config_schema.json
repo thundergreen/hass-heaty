@@ -2,10 +2,24 @@
 	"$schema": "http://json-schema.org/schema#",
 
 	"definitions": {
+		"range_string": {
+			"type": "string",
+			"pattern": "^ *\\d+( *\\- *\\d+)?( *\\, *\\d+( *\\- *\\d+)?)* *$"
+		},
+		"time_string": {
+			"type": "string",
+			"pattern": "^ *([01]\\d|2[0123]) *[\\:\\.] *([012345]\\d) *$"
+		},
 		"temperature": {
 			"anyOf": [
 				{ "type": "number" },
 				{ "type": "string", "pattern": "^off$" }
+			]
+		},
+		"temp_expr": {
+			"anyOf": [
+				{ "type": "number" },
+				{ "type": "string" }
 			]
 		},
 		"optional_entity_name": {
@@ -69,12 +83,29 @@
 			"items": { "$ref": "#/definitions/schedule_rule" }
 		},
 		"schedule_rule": {
-			"type": "string"
+			"anyOf": [
+				{ "type": "string" },
+				{
+					"type": "object",
+					"properties": {
+						"temp": { "$ref": "#/definitions/temp_expr" },
+						"time": { "$ref": "#/definitions/time_string" },
+						"years": { "$ref": "#/definitions/range_string" },
+						"months": { "$ref": "#/definitions/range_string" },
+						"days": { "$ref": "#/definitions/range_string" },
+						"weeks": { "$ref": "#/definitions/range_string" },
+						"weekdays": { "$ref": "#/definitions/range_string" }
+					},
+					"additionalProperties": false
+				}
+			]
 		}
 	},
 
 	"type": "object",
 	"properties": {
+		"module": {},
+		"class": {},
 		"heaty_id": {
 			"anyOf": [
 				{ "type": "string" },
@@ -97,5 +128,6 @@
 			"type": "object",
 			"additionalProperties": { "$ref": "#/definitions/room" }
 		}
-	}
+	},
+	"additionalProperties": false
 }
