@@ -184,7 +184,7 @@ class Heaty(appapi.AppDaemon):
         self.cancel_reschedule_timer(room_name)
         self.set_scheduled_temp(room_name)
 
-    def reschedule_event_cb(self, event, data):
+    def reschedule_event_cb(self, event, data, kwargs):
         """This callback executes when a heaty_reschedule event is received.
            data may contain a "room_name", which limits the re-scheduling
            to the given room."""
@@ -192,7 +192,7 @@ class Heaty(appapi.AppDaemon):
         room_name = data.get("room_name")
         if room_name:
             if room_name not in self.cfg["rooms"]:
-                self.log("--> [{}] Ignoring heaty_reschedule event for "
+                self.log("!!! [{}] Ignoring heaty_reschedule event for "
                          "unknown room.".format(room_name))
                 return
             room_names = [room_name]
@@ -218,7 +218,7 @@ class Heaty(appapi.AppDaemon):
         for room_name in self.cfg["rooms"]:
             self.set_scheduled_temp(room_name)
 
-    def set_temp_event_cb(self, event, data):
+    def set_temp_event_cb(self, event, data, kwargs):
         """This callback executes when a heaty_set_temp event is received.
            data must contain a "room_name" and a "temp", which may also
            be a temperature expression. "force_resend" is optional and
@@ -236,25 +236,25 @@ class Heaty(appapi.AppDaemon):
                reschedule_delay < 0:
                 raise ValueError()
         except (KeyError, TypeError, ValueError):
-            self.log("--> Ignoring heaty_set_temp event with invalid data: {}"
+            self.log("!!! Ignoring heaty_set_temp event with invalid data: {}"
                      "room.".format(repr(data)))
             return
 
         if room_name not in self.cfg["rooms"]:
-            self.log("--> [{}] Ignoring heaty_set_temp event for unknown "
+            self.log("!!! [{}] Ignoring heaty_set_temp event for unknown "
                      "room.".format(room_name))
             return
 
         if not self.cfg["untrusted_temp_expressions"] and \
            util.parse_temp(temp_expr) is None:
-            self.log("--> [{}] Ignoring heaty_set_temp event with an "
+            self.log("!!! [{}] Ignoring heaty_set_temp event with an "
                      "untrusted temperature expression. "
                      "(untrusted_temp_expressions = false)".format(room_name))
             return
 
         room = self.cfg["rooms"][room_name]
         self.log("--- [{}] heaty_set_temp event received, temperature: {}"
-                 .format(room["friendly_name"], temp_expr))
+                 .format(room["friendly_name"], repr(temp_expr)))
 
         self.set_manual_temp(room_name, temp_expr,
                              force_resend=bool(data.get("force_resend")),
