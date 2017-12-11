@@ -207,44 +207,10 @@ heaty_full:
           inverted: true
 
       # Schedule for this room.
-      # If you don't want to have this room be controlled by a schedule,
-      # simply omit the schedule or leave it empty.
-      # (optional)
+      # The explanation of schedules has been removed from this file,
+      # because it is simply to detailled.
+      #
+      # Please see README.rst.
+      #
       schedule:
-
-      # A schedule consists of a number of rules, each defining:
-      # - a set of weekdays and
-      # - a set of daytimes and corresponding temperature expressions.
-      #
-      # For each rule, timers are created that set the desired temperatures
-      # at the specified times on all weekdays the rule is valid on.
-      #
-      # This means, you don't specify time ranges and assign
-      # temperatures to them. You rather provide times at which
-      # a temperature change should happen.
-      #
-      # The different parts of a rule have to be separated by semicolons.
-      # Any whitespace contained in a rule is ignored.
-      #
-      # For a detailled explanation of temperature expressions, please
-      # see README.rst.
-
-      # From Monday to Friday, set temperature to 20.5 °C at 7.45 AM,
-      # and to 16 °C at 11.00 PM.
-      - 1-5;  07:45 = 20.5;  23:00 = 16
-
-      # On weekends, set temperature to 20.5 °C at 8.15 AM,
-      # and to 16 °C at 11.30 PM.
-      - 6-7;  8:15 = 20.5;  23:30 = 16
-
-      # On Mondays and Thursdays, additionally set temperature to the
-      # value of input_slider.temp at 6.00 PM.
-      - 1,4; 18:00 = app.get_state("input_slider.temp")
-
-      # Let's have it a bit warmer at Christmas Eve.
-      # Here is another interesting thing you can do with time expressions.
-      # If such an expression evaluates to IGNORE, it is treated as if it
-      # doesn't exist at all. You can use this behaviour to create rules
-      # that are only valid for a specific date range, for instance.
-      - 1-7; 18:00 = 22 if date == datetime.date(2017, 12, 24) else IGNORE
-      - 1-7; 23:59 = 20 if date == datetime.date(2017, 12, 24) else IGNORE
+        # ...
