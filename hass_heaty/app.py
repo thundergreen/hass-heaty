@@ -5,6 +5,7 @@ manual intervention at any time.
 """
 
 import datetime
+import importlib
 
 import appdaemon.appapi as appapi
 
@@ -25,6 +26,7 @@ class Heaty(appapi.AppDaemon):
     def __init__(self, *args, **kwargs):
         super(Heaty, self).__init__(*args, **kwargs)
         self.cfg = None
+        self.temp_expression_modules = {}
         self.current_temps = {}
         self.reschedule_timers = {}
 
@@ -45,6 +47,22 @@ class Heaty(appapi.AppDaemon):
         if heaty_id:
             self.log("--- Heaty id is: {}".format(repr(heaty_id)))
             heaty_id_kwargs["heaty_id"] = heaty_id
+
+        if self.cfg["debug"]:
+            self.log("--- Importing modules for temperature expressions.")
+        for mod_name, mod_data in self.cfg["temp_expression_modules"].items():
+            as_name = mod_data.get("as", mod_name)
+            if self.cfg["debug"]:
+                self.log("--- Importing module {} as {}."
+                         .format(repr(mod_name), repr(as_name)))
+            try:
+                mod = importlib.import_module(mod_name)
+            except Exception as err:  # pylint: disable=broad-except
+                self.log("!!! Error while importing module {}: {}"
+                         .format(repr(mod_name), repr(err)))
+                self.log("!!! Module won't be available.")
+            else:
+                self.temp_expression_modules[as_name] = mod
 
         self.log("--- Getting current temperatures from thermostats.")
         for room_name, room in self.cfg["rooms"].items():
@@ -548,7 +566,8 @@ class Heaty(appapi.AppDaemon):
 
     def eval_temp_expr(self, temp_expr, extra_env=None):
         """This is a wrapper around util.eval_temp_expr that adds the
-           app object and some helpers to the evaluation environment.
+           app object and some helpers to the evaluation environment,
+           as well as all configured temp_expression_modules.
            It also catches and logs any exception which is raised
            during evaluation. In this case, None is returned."""
 
@@ -561,6 +580,8 @@ class Heaty(appapi.AppDaemon):
         extra_env.setdefault("now", now)
         extra_env.setdefault("date", now.date())
         extra_env.setdefault("time", now.time())
+
+        extra_env.update(self.temp_expression_modules)
 
         try:
             return util.eval_temp_expr(temp_expr, extra_env=extra_env)

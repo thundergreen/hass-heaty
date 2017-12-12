@@ -2,6 +2,10 @@
 	"$schema": "http://json-schema.org/schema#",
 
 	"definitions": {
+		"python_var": {
+			"type": "string",
+			"pattern": "^[a-zA-Z_]+[a-zA-Z0-9_]*$"
+		},
 		"range_string": {
 			"type": "string",
 			"pattern": "^ *\\d+( *\\- *\\d+)?( *\\, *\\d+( *\\- *\\d+)?)* *$"
@@ -29,7 +33,15 @@
 			]
 		},
 		"reschedule_entity": {
-			"type": "object"
+			"type": "object",
+			"additionalProperties": false
+		},
+		"temp_expression_module": {
+			"type": "object",
+			"properties": {
+				"as": { "$ref": "#/definitions/python_var" }
+			},
+			"additionalProperties": false
 		},
 		"thermostat": {
 			"type": "object",
@@ -51,14 +63,16 @@
 				"temp_service": { "type": "string", "default": "climate/set_temperature" },
 				"temp_service_attr": { "type": "string", "default": "temperature" },
 				"temp_state_attr": { "type": "string", "default": "temperature" }
-			}
+			},
+			"additionalProperties": false
 		},
 		"window_sensor": {
 			"type": "object",
 			"properties": {
 				"delay": { "type": "integer", "min": 0, "default": 10 },
 				"inverted": { "type": "boolean", "default": false }
-			}
+			},
+			"additionalProperties": false
 		},
 		"room": {
 			"type": "object",
@@ -102,8 +116,8 @@
 
 	"type": "object",
 	"properties": {
-		"module": {},
-		"class": {},
+		"module": { },
+		"class": { },
 		"heaty_id": {
 			"anyOf": [
 				{ "type": "string" },
@@ -119,6 +133,10 @@
 		"reschedule_entities": {
 			"type": "object",
 			"additionalProperties": { "$ref": "#/definitions/reschedule_entity" }
+		},
+		"temp_expression_modules": {
+			"type": "object",
+			"additionalProperties": { "$ref": "#/definitions/temp_expression_module" }
 		},
 		"thermostat_defaults": { "$ref": "#/definitions/thermostat" },
 		"window_sensor_defaults": { "$ref": "#/definitions/window_sensor" },

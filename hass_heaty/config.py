@@ -109,6 +109,9 @@ def parse_config(cfg):
     patch_if_none(cfg, "reschedule_entities", {})
     for key in cfg["reschedule_entities"]:
         patch_if_none(cfg["reschedule_entities"], key, {})
+    patch_if_none(cfg, "temp_expression_modules", {})
+    for key in cfg["temp_expression_modules"]:
+        patch_if_none(cfg["temp_expression_modules"], key, {})
     patch_if_none(cfg, "thermostat_defaults", {})
     patch_if_none(cfg, "window_sensor_defaults", {})
     patch_if_none(cfg, "rooms", {})

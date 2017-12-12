@@ -241,11 +241,31 @@ The following variables are available inside time expressions:
 
 * ``app``: the appdaemon.appapi.AppDaemon object
 * ``datetime``: Python's ``datetime`` module
-* ``now``: a ``datetime.datetime`` object containing the current date and time
+* ``now``: a ``datetime.datetime`` object containing the current date
+  and time
 * ``date``: a shortcut for ``now.date()``
 * ``time``: a shortcut for ``now.time()``
 * ``IGNORE``: the special return value which causes the expression to be
   ignored (see above)
+
+You can easily make your own code available inside temperature
+expressions by importing custom modules. Modules that should be
+available in your expressions have to be specified in the configuration
+like so:
+
+::
+
+    temp_expression_modules:
+      math:
+      time:
+        as: _time
+      my_custom_module:
+
+This will make the modules ``math`` and ``time`` from Python's standard
+library available, as well as ``my_custom_module``. However, the
+``time`` module will be made accessible under the name ``_time`` to
+prevent the variable ``time``, which is included by Heaty anyway, from
+being overwritten.
 
 Examples on how to use temperature expressions are coming soon.
 
