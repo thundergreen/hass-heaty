@@ -273,7 +273,7 @@ being overwritten.
 Example
 ~~~~~~~
 
-Imagine you have a module which does some more complex calculations
+Imagine you have a module which makes some more complex decisions
 based on the current state. We call it ``my_mod``. This could look
 as follows:
 
@@ -296,6 +296,7 @@ order):
 
 ::
 
+    schedule:
     - temp: my_mod.get_temp("bath", app, IGNORE)
     - temp: 19
 
@@ -324,12 +325,29 @@ causes the temperature to be set to 22 degrees. However, if the switch
 is off or we called it for a room it actually has no clue about,
 the rule is ignored completely.
 
-In case of our bath room schedule, the second rule is now evaluated,
-which always evaluates to 19 degrees.
+If that happens, the second rule is processed, which always evaluates
+to 19 degrees.
 
 You should be able to extend the ``get_temp`` function to include
 functionality for other rooms now as well.
 
+This example demonstrated how custom modules can be used in schedules.
+However, for such a simple use case, there is a much shorter way of
+achieving the same goal. The following schedule will have the same
+effect, but without the use of any external Python module:
+
+::
+
+    schedule:
+    - temp: 22 if app.get_state("switch.take_a_bath") == "on" else IGNORE
+    - temp: 19
+
+Basically, we inlined the Python code we previously placed in
+``my_mod.py`` right into the schedule rule. This works because it is
+just an ordinary expression and not a series of statements. If you know
+a little Python, you'll probably be familiar with this way of writing
+expressions. Often, it is easier and also more readable to include such
+short ones directly into the rule instead of calling external code.
 
 Security considerations
 ~~~~~~~~~~~~~~~~~~~~~~~
