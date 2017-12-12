@@ -3,4 +3,4 @@ This is the hass_heaty package. Functionality is separated in the
 various sub-modules.
 """
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
