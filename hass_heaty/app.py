@@ -15,9 +15,6 @@ from . import __version__, config, util
 __all__ = ["Heaty"]
 
 
-RESCHEDULE_ENTITY_DELAY = 5
-
-
 class Heaty(appapi.AppDaemon):
     """The Heaty app class for AppDaemon."""
 
@@ -112,16 +109,6 @@ class Heaty(appapi.AppDaemon):
                     self.log("--- [{}] Registering timer at {}."
                              .format(room["friendly_name"], _time))
                 self.run_daily(self.schedule_cb, _time, room_name=room_name)
-
-        if self.cfg["debug"]:
-            self.log("--- Registering state listeners for re-schedule "
-                     "entities.")
-        for entity_name in self.cfg["reschedule_entities"]:
-            if self.cfg["debug"]:
-                self.log("--- Registering state listener for {}, delay {}."
-                         .format(entity_name, RESCHEDULE_ENTITY_DELAY))
-            self.listen_state(self.reschedule_entity_state_cb, entity_name,
-                              duration=RESCHEDULE_ENTITY_DELAY)
 
         if self.cfg["debug"]:
             self.log("--- Registering thermostat state listeners.")
@@ -219,22 +206,18 @@ class Heaty(appapi.AppDaemon):
 
         for room_name in room_names:
             room = self.cfg["rooms"][room_name]
+
+            if not self.master_switch_enabled() or \
+               not self.schedule_switch_enabled(room_name):
+                self.log("--- [{}] Ignoring re-schedule event because "
+                         "master or schedule switch is off.")
+                continue
+
             self.log("--- [{}] Re-schedule event received."
                      .format(room["friendly_name"]))
-            self.cancel_reschedule_timer(room_name)
-            self.set_scheduled_temp(room_name)
-
-    def reschedule_entity_state_cb(self, entity, attr, old, new, kwargs):
-        """Is called when the value of an entity changes that is part
-           of a dynamic schedule.
-           This method runs set_scheduled_temp for all rooms to refresh
-           the temperatures."""
-
-        if self.cfg["debug"]:
-            self.log("--- Re-computing temperatures in all rooms.")
-
-        for room_name in self.cfg["rooms"]:
-            self.set_scheduled_temp(room_name)
+            # delay for 6 seconds to avoid re-scheduling multiple
+            # times if multiple events come in shortly
+            self.update_reschedule_timer(room_name, reschedule_delay=0.1)
 
     def set_temp_event_cb(self, event, data, kwargs):
         """This callback executes when a heaty_set_temp event is received.

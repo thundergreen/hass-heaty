@@ -77,16 +77,6 @@ heaty_full:
   # (optional, default: off)
   off_temp: 4
 
-  # You can build schedules that are based on the current state of some
-  # entities. We call these entities re-schedule entities. A re-schedule
-  # entity can be any entity in Home Assistant.
-  # The entities your schedules are based on should be registered in this
-  # config block so that Heaty can detect state changes of these entities
-  # and re-schedule your heatings eventually.
-  reschedule_entities:
-    input_boolean.some_input:
-    input_slider.temp:
-
   # Here you can define Python modules that should be available from
   # inside your temperature expressions. These modules are imported
   # upon Heaty's initialization, hence you have to restart AppDaemon

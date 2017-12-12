@@ -32,10 +32,6 @@
 				{ "type": "null" }
 			]
 		},
-		"reschedule_entity": {
-			"type": "object",
-			"additionalProperties": false
-		},
 		"temp_expression_module": {
 			"type": "object",
 			"properties": {
@@ -130,10 +126,6 @@
 		"master_switch": { "$ref": "#/definitions/optional_entity_name", "default": null },
 		"master_controls_schedule_switches": { "type": "boolean", "default": true },
 		"off_temp": { "$ref": "#/definitions/temperature", "default": "off" },
-		"reschedule_entities": {
-			"type": "object",
-			"additionalProperties": { "$ref": "#/definitions/reschedule_entity" }
-		},
 		"temp_expression_modules": {
 			"type": "object",
 			"additionalProperties": { "$ref": "#/definitions/temp_expression_module" }

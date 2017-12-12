@@ -299,13 +299,20 @@ order):
     - temp: my_mod.get_temp("bath", app, IGNORE)
     - temp: 19
 
-Last step would be to add the ``switch.take_a_bath`` to our list of
-re-schedule entities:
+Last step is to write a simple Home Assistant automation to emit a
+re-schedule event whenever the state of ``switch.take_a_bath`` changes.
 
 ::
 
-    reschedule_entities:
-      switch.take_a_bath:
+    automation:
+      alias: "Re-schedule when switch.take_a_bath is toggled"
+      trigger:
+        platform: state
+        entity_id: switch.take_a_bath
+      action:
+        event: heaty_reschedule
+        event_data:
+          room_name: bath
 
 We're done! Now, whenever we toggle the ``take_a_bath`` switch, the
 schedules are re-evaluated and our first schedule rule executes.
@@ -341,30 +348,6 @@ temperature expressions from being accepted in the ``heaty_set_temp``
 event, processing of such expressions is disabled by default and has
 to be enabled explicitly by setting ``untrusted_temp_expressions: true``
 in your Heaty configuration.
-
-
-Re-schedule entities
---------------------
-
-Schedules may be based on the state of some known entities. Heaty can
-register a state listener for these entities which triggers a
-re-scheduling everytime the state of an entity changes.
-
-These entities go into the ``reschedule_entities`` section of your config:
-
-::
-
-    reschedule_entities:
-      input_boolean.some_switch:
-
-Now, whenever the state of ``input_boolean.some_switch`` changes, a
-re-scheduling is triggered in all rooms, giving schedule rules the
-chance to react on the new state.
-
-Note that Heaty adds a slight delay of 5 seconds afther the entity
-has changed before it starts the re-scheduling. This allows correcting
-accidental changes of input elements within 5 seconds. Also, several
-changes that happen in series will only trigger one single re-scheduling.
 
 
 Events
