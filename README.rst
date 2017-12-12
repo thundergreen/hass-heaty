@@ -274,7 +274,7 @@ Example
 ~~~~~~~
 
 Imagine you have a module which does some more complex calculations
-based on the current state. We call it ``my_mod.py``. This could look
+based on the current state. We call it ``my_mod``. This could look
 as follows:
 
 ::
@@ -284,6 +284,12 @@ as follows:
             if app.get_state("switch.take_a_bath") == "on":
                 return 22
         return IGNORE
+
+Save the code as ``my_mod.py`` somewhere Python can find it.
+The easiest way is to store it inside AppDaemon's ``apps`` directory.
+
+Add the module to your ``temp_expression_modules`` config as
+explained before.
 
 Now, we write two new schedule rules for the bath room (note their
 order):
