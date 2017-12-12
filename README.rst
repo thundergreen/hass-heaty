@@ -248,6 +248,9 @@ The following variables are available inside time expressions:
 * ``IGNORE``: the special return value which causes the expression to be
   ignored (see above)
 
+Using code from custom modules
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 You can easily make your own code available inside temperature
 expressions by importing custom modules. Modules that should be
 available in your expressions have to be specified in the configuration
@@ -267,7 +270,52 @@ library available, as well as ``my_custom_module``. However, the
 prevent the variable ``time``, which is included by Heaty anyway, from
 being overwritten.
 
-Examples on how to use temperature expressions are coming soon.
+Example
+~~~~~~~
+
+Imagine you have a module which does some more complex calculations
+based on the current state. We call it ``my_mod.py``. This could look
+as follows:
+
+::
+
+    def get_temp(room_name, app, IGNORE):
+        if room_name == "bath":
+            if app.get_state("switch.take_a_bath") == "on":
+                return 22
+        return IGNORE
+
+Now, we write two new schedule rules for the bath room (note their
+order):
+
+::
+
+    - temp: my_mod.get_temp("bath", app, IGNORE)
+    - temp: 19
+
+Last step would be to add the ``switch.take_a_bath`` to our list of
+re-schedule entities:
+
+::
+
+    reschedule_entities:
+      switch.take_a_bath:
+
+We're done! Now, whenever we toggle the ``take_a_bath`` switch, the
+schedules are re-evaluated and our first schedule rule executes.
+The rule invokes our custom function, passing to it the room's name,
+the ``appdaemon.appapi.AppDaemon`` object and the value that is
+expected in case the rule should be ignored. Our custom function
+checks the state of the ``take_a_bath`` switch and, if it's enabled,
+causes the temperature to be set to 22 degrees. However, if the switch
+is off or we called it for a room it actually has no clue about,
+the rule is ignored completely.
+
+In case of our bath room schedule, the second rule is now evaluated,
+which always evaluates to 19 degrees.
+
+You should be able to extend the ``get_temp`` function to include
+functionality for other rooms now as well.
 
 
 Security considerations
