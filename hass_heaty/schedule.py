@@ -60,15 +60,25 @@ class Schedule:
     """Holds the schedule for a room with all its rules."""
 
     def __init__(self):
-        self.rules = []
+        self.items = []
 
-    def get_rules(self, when):
+    def unfold(self):
+        """Returns an iterator over all rules of this schedule. Included
+           sub-schedules are replaced by the rules they contain."""
+        for item in self.items:
+            if isinstance(item, Rule):
+                yield item
+            elif isinstance(item, Schedule):
+                for rule in item.unfold():
+                    yield rule
+
+    def get_matching_rules(self, when):
         """Returns an iterator over all rules of the schedule that are
            valid for the given datetime object, keeping the order from
-           the rules list."""
+           the items list. Rules of sub-schedules are included."""
 
         _time = when.time()
-        for rule in self.rules:
+        for rule in self.unfold():
             days_back = -1
             found_start_day = False
             while days_back < rule.end_plus_days:

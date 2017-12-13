@@ -92,7 +92,7 @@ class Heaty(appapi.AppDaemon):
             self.log("--- Creating schedule timers.")
         for room_name, room in self.cfg["rooms"].items():
             times = set()
-            for rule in room["schedule"].rules:
+            for rule in room["schedule"].unfold():
                 for _time in (rule.start_time, rule.end_time):
                     # run 1 second later to avoid race condition, probably
                     # not needed, but it doesn't hurt either
@@ -186,7 +186,10 @@ class Heaty(appapi.AppDaemon):
         room = self.cfg["rooms"][room_name]
         self.log("--- [{}] Re-schedule timer fired."
                  .format(room["friendly_name"]))
-        self.cancel_reschedule_timer(room_name)
+        try:
+            del self.reschedule_timers[room_name]
+        except KeyError:
+            pass
         self.set_scheduled_temp(room_name)
 
     def reschedule_event_cb(self, event, data, kwargs):
@@ -217,7 +220,8 @@ class Heaty(appapi.AppDaemon):
                      .format(room["friendly_name"]))
             # delay for 6 seconds to avoid re-scheduling multiple
             # times if multiple events come in shortly
-            self.update_reschedule_timer(room_name, reschedule_delay=0.1)
+            self.update_reschedule_timer(room_name, reschedule_delay=0.1,
+                                         force=True)
 
     def set_temp_event_cb(self, event, data, kwargs):
         """This callback executes when a heaty_set_temp event is received.
@@ -464,7 +468,7 @@ class Heaty(appapi.AppDaemon):
 
         room = self.cfg["rooms"][room_name]
 
-        for rule in room["schedule"].get_rules(self.datetime()):
+        for rule in room["schedule"].get_matching_rules(self.datetime()):
             temp = self.eval_temp_expr(rule.temp_expr)
             if self.cfg["debug"]:
                 self.log("--- [{}] Evaluated temperature expression {} "
@@ -572,13 +576,14 @@ class Heaty(appapi.AppDaemon):
             self.log("!!! Error while evaluating temperature expression: {}"
                      .format(repr(err)))
 
-    def update_reschedule_timer(self, room_name, reschedule_delay=None):
+    def update_reschedule_timer(self, room_name, reschedule_delay=None,
+                                force=False):
         """This method cancels an existing re-schedule timer first.
-           Then, it checks whether the current temperature in the
-           given room differs from the scheduled temperature. If so,
-           a new timer is created according to the room's settings.
-           reschedule_delay, if given, overwrites the value configured
-           for the room."""
+           Then, it checks if either force is set or the current
+           temperature in the given room differs from the scheduled
+           temperature. If so, a new timer is created according to
+           the room's settings. reschedule_delay, if given, overwrites
+           the value configured for the room."""
 
         self.cancel_reschedule_timer(room_name)
 
@@ -587,24 +592,25 @@ class Heaty(appapi.AppDaemon):
             return
 
         room = self.cfg["rooms"][room_name]
+
+        self.cancel_reschedule_timer(room_name)
+
         if reschedule_delay is None:
             reschedule_delay = room["reschedule_delay"]
 
         temp = self.current_temps.get(room_name)
-        if reschedule_delay and temp != self.get_scheduled_temp(room_name):
-            self.cancel_reschedule_timer(room_name)
-            when = self.datetime() + \
-                   datetime.timedelta(minutes=reschedule_delay)
-            self.log("--- [{}] Re-scheduling not before {} ({} minutes)."
-                     .format(room["friendly_name"],
-                             util.format_time(when.time()),
-                             reschedule_delay))
-            # delay is expected to be in seconds by AppDaemon, but given
-            # to Heaty as minutes
-            timer = self.run_in(self.reschedule_timer_cb,
-                                60 * reschedule_delay,
-                                room_name=room_name)
-            self.reschedule_timers[room_name] = timer
+        if not reschedule_delay or \
+           (not force and temp == self.get_scheduled_temp(room_name)):
+            return
+
+        delta = datetime.timedelta(minutes=reschedule_delay)
+        when = self.datetime() + delta
+        self.log("--- [{}] Re-scheduling not before {} ({})."
+                 .format(room["friendly_name"],
+                         util.format_time(when.time()), delta))
+        timer = self.run_at(self.reschedule_timer_cb, when,
+                            room_name=room_name)
+        self.reschedule_timers[room_name] = timer
 
     def cancel_reschedule_timer(self, room_name):
         """Cancels the reschedule timer for the given room, if one

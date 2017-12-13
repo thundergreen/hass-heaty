@@ -160,6 +160,14 @@ heaty_full:
     # (optional, default: false)
     inverted: false
 
+  # Add schedule rules you want to have prepended to each room's schedule
+  # automatically here.
+  schedule_prepend:
+
+  # Add schedule rules you want to have appended to each room's schedule
+  # automatically here.
+  schedule_append:
+
   rooms:
 
     # Create such a block for every room you want to control.

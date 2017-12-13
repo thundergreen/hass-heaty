@@ -111,6 +111,8 @@ def parse_config(cfg):
         patch_if_none(cfg["temp_expression_modules"], key, {})
     patch_if_none(cfg, "thermostat_defaults", {})
     patch_if_none(cfg, "window_sensor_defaults", {})
+    patch_if_none(cfg, "schedule_prepend", [])
+    patch_if_none(cfg, "schedule_append", [])
     patch_if_none(cfg, "rooms", {})
     for key in cfg["rooms"]:
         patch_if_none(cfg["rooms"], key, {})
@@ -125,11 +127,14 @@ def parse_config(cfg):
 
     validate_config(cfg)
 
+    cfg["schedule_prepend"] = parse_schedule(cfg["schedule_prepend"])
+    cfg["schedule_append"] = parse_schedule(cfg["schedule_append"])
+
     # set some initial values
     for room_name, room in cfg["rooms"].items():
         room.setdefault("friendly_name", room_name)
 
-        # copy settings from defaults sections
+        # copy settings from defaults sections to this room
         for therm in room["thermostats"].values():
             for key, val in cfg["thermostat_defaults"].items():
                 therm.setdefault(key, val)
@@ -137,27 +142,40 @@ def parse_config(cfg):
             for key, val in cfg["window_sensor_defaults"].items():
                 sensor.setdefault(key, val)
 
-        # build schedule
-        sched = schedule.Schedule()
-        for rule in room["schedule"]:
-            constraints = {}
-            for name, value in rule.items():
-                if name in RANGE_STRING_CONSTRAINTS:
-                    constraints[name] = util.expand_range_string(value)
-            start_time = rule.get("start")
-            if start_time is not None:
-                start_time = util.parse_time_string(start_time)
-            end_time = rule.get("end")
-            if end_time is not None:
-                end_time = util.parse_time_string(end_time)
-            end_plus_days = rule["end_plus_days"]
-            temp_expr = rule["temp"]
-            rule = schedule.Rule(temp_expr=temp_expr,
-                                 start_time=start_time,
-                                 end_time=end_time,
-                                 end_plus_days=end_plus_days,
-                                 constraints=constraints)
-            sched.rules.append(rule)
-        room["schedule"] = sched
+        room["schedule"] = parse_schedule(room["schedule"])
+        room["schedule"].items.insert(0, cfg["schedule_prepend"])
+        room["schedule"].items.append(cfg["schedule_append"])
 
     return cfg
+
+def parse_schedule(rules):
+    """Builds and returns a Schedule object from the given schedule
+       config block."""
+
+    sched = schedule.Schedule()
+    for rule in rules:
+        constraints = {}
+        for name, value in rule.items():
+            if name in RANGE_STRING_CONSTRAINTS:
+                constraints[name] = util.expand_range_string(value)
+
+        start_time = rule.get("start")
+        if start_time is not None:
+            start_time = util.parse_time_string(start_time)
+        end_time = rule.get("end")
+
+        if end_time is not None:
+            end_time = util.parse_time_string(end_time)
+        end_plus_days = rule["end_plus_days"]
+
+        temp_expr = rule["temp"]
+
+        rule = schedule.Rule(temp_expr=temp_expr,
+                             start_time=start_time,
+                             end_time=end_time,
+                             end_plus_days=end_plus_days,
+                             constraints=constraints)
+
+        sched.items.append(rule)
+
+    return sched

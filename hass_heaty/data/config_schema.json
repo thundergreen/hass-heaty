@@ -86,7 +86,8 @@
 					"additionalProperties": { "$ref": "#/definitions/window_sensor", "ignoreDefaults": true }
 				},
 				"schedule": { "$ref": "#/definitions/schedule" }
-			}
+			},
+			"additionalProperties": false
 		},
 		"schedule": {
 			"type": "array",
@@ -132,6 +133,8 @@
 		},
 		"thermostat_defaults": { "$ref": "#/definitions/thermostat" },
 		"window_sensor_defaults": { "$ref": "#/definitions/window_sensor" },
+		"schedule_prepend": { "$ref": "#/definitions/schedule" },
+		"schedule_append": { "$ref": "#/definitions/schedule" },
 		"rooms": {
 			"type": "object",
 			"additionalProperties": { "$ref": "#/definitions/room" }
