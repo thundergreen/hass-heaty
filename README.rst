@@ -305,13 +305,12 @@ re-schedule event whenever the state of ``switch.take_a_bath`` changes.
 
 ::
 
-    automation:
-      alias: "Re-schedule when switch.take_a_bath is toggled"
+    - alias: "Re-schedule when switch.take_a_bath is toggled"
       trigger:
-        platform: state
+      - platform: state
         entity_id: switch.take_a_bath
       action:
-        event: heaty_reschedule
+      - event: heaty_reschedule
         event_data:
           room_name: bath
 
@@ -395,13 +394,13 @@ regular schedule after one hour:
 
 ::
 
-    alias: Hot for one hour
-    sequence:
-    - event: heaty_set_temp
-      event_data:
-        room_name: living
-        temp: 25.0
-        reschedule_delay: 60
+    - alias: Hot for one hour
+      sequence:
+      - event: heaty_set_temp
+        event_data:
+          room_name: living
+          temp: 25.0
+          reschedule_delay: 60
 
 
 Using Heaty without schedules
