@@ -10,9 +10,21 @@ import re
 RANGE_PATTERN = re.compile(r"^(\d+)\-(\d+)$")
 # regexp pattern matching military time format (%H:%M)
 TIME_PATTERN = re.compile(r"^([01]\d|2[0123])[\:\.]([012345]\d)$")
+# matches any character that is not allowed in Python variable names
+INVALID_VAR_NAME_CHAR_PATTERN = re.compile(r"[^a-zA-Z_]")
 # strftime-compatible format string for military time
 TIME_FORMAT = "%H:%M"
 
+
+def escape_var_name(name):
+    """Converts the given string to a valid Python variable name.
+       All unsupported characters are replaced by "_". If name would
+       start with a digit, "_" is put infront."""
+    name = INVALID_VAR_NAME_CHAR_PATTERN.sub("_", name)
+    digits = tuple([str(i) for i in range(10)])
+    if name.startswith(digits):
+        name = "_" + name
+    return name
 
 def expand_range_string(range_string):
     """Expands strings of the form '1,2-4,9,11-12 to set(1,2,3,4,9,11,12).

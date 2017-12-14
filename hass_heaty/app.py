@@ -48,7 +48,7 @@ class Heaty(appapi.AppDaemon):
         if self.cfg["debug"]:
             self.log("--- Importing modules for temperature expressions.")
         for mod_name, mod_data in self.cfg["temp_expression_modules"].items():
-            as_name = mod_data.get("as", mod_name)
+            as_name = util.escape_var_name(mod_data.get("as", mod_name))
             if self.cfg["debug"]:
                 self.log("--- Importing module {} as {}."
                          .format(repr(mod_name), repr(as_name)))
@@ -126,13 +126,6 @@ class Heaty(appapi.AppDaemon):
                     self.listen_state(self.thermostat_state_cb, therm_name,
                                       attribute="all", room_name=room_name)
 
-        master_switch = self.cfg["master_switch"]
-        if master_switch:
-            if self.cfg["debug"]:
-                self.log("--- Registering state listener for {}."
-                         .format(master_switch))
-            self.listen_state(self.master_switch_cb, master_switch)
-
         if self.cfg["debug"]:
             self.log("--- Registering window sensor state listeners.")
         for room_name, room in self.cfg["rooms"].items():
@@ -153,6 +146,13 @@ class Heaty(appapi.AppDaemon):
                     self.set_scheduled_temp(room_name)
         else:
             self.log("--- Master switch is off, setting no initial values.")
+
+        master_switch = self.cfg["master_switch"]
+        if master_switch:
+            if self.cfg["debug"]:
+                self.log("--- Registering state listener for {}."
+                         .format(master_switch))
+            self.listen_state(self.master_switch_cb, master_switch)
 
         self.log("--- Initialization done.")
 
