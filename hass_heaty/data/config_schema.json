@@ -10,6 +10,12 @@
 			"type": "string",
 			"pattern": "^ *\\d+( *\\- *\\d+)?( *\\, *\\d+( *\\- *\\d+)?)* *$"
 		},
+		"range_string_or_integer": {
+			"anyOf": [
+				{ "$ref": "#/definitions/range_string" },
+				{ "type": "integer" }
+			]
+		},
 		"time_string": {
 			"type": "string",
 			"pattern": "^ *([01]\\d|2[0123]) *[\\:\\.] *([012345]\\d) *$"
@@ -100,11 +106,11 @@
 				"start": { "$ref": "#/definitions/time_string" },
 				"end": { "$ref": "#/definitions/time_string" },
 				"end_plus_days": { "type": "integer", "min": 0, "default": 0 },
-				"years": { "$ref": "#/definitions/range_string" },
-				"months": { "$ref": "#/definitions/range_string" },
-				"days": { "$ref": "#/definitions/range_string" },
-				"weeks": { "$ref": "#/definitions/range_string" },
-				"weekdays": { "$ref": "#/definitions/range_string" }
+				"years": { "$ref": "#/definitions/range_string_or_integer" },
+				"months": { "$ref": "#/definitions/range_string_or_integer" },
+				"days": { "$ref": "#/definitions/range_string_or_integer" },
+				"weeks": { "$ref": "#/definitions/range_string_or_integer" },
+				"weekdays": { "$ref": "#/definitions/range_string_or_integer" }
 			},
 			"additionalProperties": false,
 			"required": ["temp"]

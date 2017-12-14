@@ -71,6 +71,11 @@ class Heaty(appapi.AppDaemon):
                     continue
                 # fetch initial state from thermostats
                 state = self.get_state(therm_name, attribute="all")
+                if not state:
+                    # unknown entity
+                    self.log("!!! State for thermostat {} is None, "
+                             "ignoring it.".format(therm_name))
+                    continue
                 # populate self.current_temps by simulating a state change
                 self.thermostat_state_cb(therm_name, "all", state, state,
                                          {"room_name": room_name,
@@ -468,11 +473,9 @@ class Heaty(appapi.AppDaemon):
            be found in the schedule (e.g. all rules evaluate to Ignore()),
            None is returned."""
 
-        # pylint: disable=unidiomatic-typecheck
-
         room = self.cfg["rooms"][room_name]
 
-        result_sum = expr.Ignore()
+        result_sum = expr.Add(0)
         for rule in room["schedule"].get_matching_rules(self.datetime()):
             result = self.eval_temp_expr(rule.temp_expr, room_name)
             if self.cfg["debug"]:
@@ -487,6 +490,13 @@ class Heaty(appapi.AppDaemon):
                          .format(rule.temp_expr_raw))
                 continue
 
+            if isinstance(result, expr.Break):
+                # abort, don't change temperature
+                if self.cfg["debug"]:
+                    self.log("--- [{}] Aborting scheduling due to Break()."
+                             .format(room["friendly_name"]))
+                return
+
             if isinstance(result, expr.Ignore):
                 # skip this rule
                 if self.cfg["debug"]:
@@ -496,7 +506,7 @@ class Heaty(appapi.AppDaemon):
 
             result_sum += result
 
-            if type(result_sum) is expr.Result:
+            if isinstance(result_sum, expr.Result):
                 return result_sum.temp
 
     def set_scheduled_temp(self, room_name, force_resend=False):
@@ -538,8 +548,6 @@ class Heaty(appapi.AppDaemon):
            started if re-schedule timers are configured. reschedule_delay,
            if given, overwrites the value configured for the room."""
 
-        # pylint: disable=unidiomatic-typecheck
-
         if not self.master_switch_enabled() or \
            self.get_open_windows(room_name):
             return
@@ -552,7 +560,7 @@ class Heaty(appapi.AppDaemon):
                      .format(room["friendly_name"], repr(temp_expr),
                              repr(result)))
 
-        if type(result) is not expr.Result:
+        if not isinstance(result, expr.Result):
             self.log("--- [{}] Ignoring temperature expression."
                      .format(room["friendly_name"]))
             return

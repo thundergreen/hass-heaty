@@ -144,14 +144,14 @@ which behaves exactly like the previous one.
 ::
 
     schedule:
-    - temp: 21.5
-      start: "07:00"
-      end: "22:00"
+    - { temp: 21.5, start: "07:00", end: "22:00" }
+    - { temp: 16,   start: "00:00", end: "00:00", end_plus_days: 1 }
 
-    - temp: 16
-      start: "00:00"
-      end: "00:00"
-      end_plus_days: 1
+Note how each rule has been rewritten to take just a single line.
+This is no special feature of Heaty, it's rather normal YAML. But
+writing rules this way is often more readable, especially if you
+need to create multiple similar ones which, for instance, only
+differ in weekdays, time or temperature.
 
 Now we have covered the basics, but we can't create schedules based
 on, for instance, the days of the week. Let's do that next.
@@ -222,28 +222,34 @@ are evaluated at runtime. When Heaty parses its configuration, all
 temperature expressions are pre-compiled to make their later evaluation
 more performant.
 
-Temperature expressions must evaluate to a ``Result`` object holding
-the desired temperature value. Such an object can be created like
-``Result(19)`` or ``Result("off")``. If your expression evaluates to
-an ``int``, ``float`` or ``str`` type, Heaty converts it to a
-``Result`` automatically for convenience.
+Temperature expressions must evaluate to an object of type
+``ResultBase``. However, you should always return one of its sub-types.
 
-An object of one of the following sub-types of ``Result`` can be
+Such an object can be created like ``Result(19)`` or ``Result("off")``.
+If your expression evaluates to an ``int``, ``float`` or ``str`` type,
+Heaty converts it to a ``Result`` automatically for convenience.
+
+An object of one of the following sub-types of ``ResultBase`` can be
 returned to influence the way your result is treated.
 
 * ``Add(value)``, which causes ``value`` to be added to the result of
-  a consequent rule. This is continued until a rule evaluates to a real
-  ``Result``.
+  a consequent rule. This is continued until a rule evaluates to a
+  final ``Result``.
+* ``Break()``, which causes schedule lookup to be aborted immediately.
+  The temperature will not be changed in this case.
 * ``Ignore()``, which causes the rule to be treated as if it doesn't
   exist at all. If one exists, the next rule is evaluated in this case.
+* ``Result(value)``: just the final result which will be used as the
+  temperature. Schedule lookup is aborted at this point.
 
 There is an object available under the name ``app`` which represents
 the ``appdaemon.appapi.AppDaemon`` object of Heaty. You could,
 for instance, retrieve values of input sliders via the normal
 AppDaemon API.
 
-Beside the return types like ``Result``, ``Add`` and ``Ignore``, the
-following global variables are available inside time expressions:
+Beside the return types like ``Add``, ``Break``, ``Ignore`` and
+``Result``, the following global variables are available inside
+time expressions:
 
 * ``app``: the appdaemon.appapi.AppDaemon object
 * ``room_name``: the name of the room the expression is evaluated for
@@ -276,8 +282,8 @@ library available, as well as ``my_custom_module``. However, the
 prevent the variable ``time``, which is included by Heaty anyway, from
 being overwritten.
 
-Example
-~~~~~~~
+Example: Use of an external module
+~~~~~~~===========================
 
 Imagine you have a module which makes some more complex decisions
 based on the current state. We call it ``my_mod``. This could look
@@ -339,6 +345,9 @@ to 19 degrees.
 You should be able to extend the ``get_temp`` function to include
 functionality for other rooms now as well.
 
+Example: Inlining temperature expressions into schedules
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 This example demonstrated how custom modules can be used in schedules.
 However, for such a simple use case, there is a much shorter way of
 achieving the same goal. The following schedule will have the same
@@ -356,6 +365,59 @@ just an ordinary expression and not a series of statements. If you know
 a little Python, you'll probably be familiar with this way of writing
 expressions. Often, it is easier and also more readable to include such
 short ones directly into the rule instead of calling external code.
+
+Example: Use of ``Add()`` and ``Ignore()``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This is a rule I use in my own Heaty configuration at home:
+
+::
+
+    schedule_prepend:
+    - temp: Add(-3) if app.get_state("input_boolean.absent") == "on" else Ignore()
+
+What does this? Well, the first thing we see is that the rule is placed
+inside the ``schedule_prepend`` section. That means, it is valid for
+every room and always the first rule being evaluated.
+
+I've defined an ``input_boolean`` called ``absent`` in Home Assistant.
+Whenever I leave the house, this gets enabled. If I return, it's turned
+off again. In order for Heaty to notice the toggling, I added an
+automation to Home Assistant which fires a ``heaty_reschedule`` event.
+How that can be done has already been shown above.
+
+Now let's get back to the schedule rule. If it evaluates, it checks the
+state of ``input_boolean.absent``. If the switch is turned on, it
+evaluates to ``Add(-3)``, otherwise to ``Ignore()``.
+
+``Add(-3)`` is no final temperature yet. Think of it as a temporary
+value that is remembered and used later.
+
+Now, my regular schedule starts being evaluated, which, of course, is
+different for every room. Rules are evaluated just as normal. If one
+returns a ``Result``, that is used as the temperature and evaluation
+stops. But wait, there was the ``Add(-3)``, wasn't it? Sure it was.
+Hence ``-3`` is now added to the final result.
+
+With this minimal configuration effort, I added an useful away-mode
+which throttles all thermostats in the house as soon as I leave.
+
+Think of a device tracker that is able to report the distance between
+you and your home. Having such one set up, you could even implement
+dynamic throttling that slowly decreases as you near with almost zero
+configuration.
+
+Example: What to use ``Break()`` for
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``Break`` return type is most useful for disabling Heaty's
+scheduling mechanism depending on the state of entities. You might
+implement a schedule on/off switch with it, like so:
+
+::
+
+    schedule_prepend:
+    - temp: Break() if app.get_state("input_boolean.heating_schedule") == "off" else Ignore()
 
 Security considerations
 ~~~~~~~~~~~~~~~~~~~~~~~

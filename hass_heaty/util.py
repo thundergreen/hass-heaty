@@ -16,7 +16,11 @@ TIME_FORMAT = "%H:%M"
 
 def expand_range_string(range_string):
     """Expands strings of the form '1,2-4,9,11-12 to set(1,2,3,4,9,11,12).
-       Any whitespace is ignored."""
+       Any whitespace is ignored. If a float or int is given instead of a
+       string, a set containing only that, converted to int, is returned."""
+
+    if isinstance(range_string, (float, int)):
+        return set([int(range_string)])
 
     numbers = set()
     for part in "".join(range_string.split()).split(","):

@@ -2,16 +2,18 @@
 Module containing functionality to evaluate temperature expressions.
 """
 
-import copy
 import datetime
 import functools
 
 
-__all__ = ["Add", "Ignore", "Result", "Temp"]
+__all__ = ["Add", "Break", "Ignore", "Result", "Temp"]
 
 
-# special return values for temperature expressions
-class Result:
+class AddibleMixin:
+    """Mixin that makes a temperature expression result addible."""
+    pass
+
+class ResultBase:
     """Holds the result of a temperature expression."""
 
     def __init__(self, temp):
@@ -20,45 +22,47 @@ class Result:
     def __eq__(self, other):
         return type(self) is type(other) and self.temp == other.temp
 
+
+class Result(ResultBase, AddibleMixin):
+    """Final result of a temperature expression."""
+
     def __repr__(self):
         return "{}".format(self.temp)
 
-class Add(Result):
+class Add(ResultBase, AddibleMixin):
     """Result of a temperature expression that is intended to be added
        to the result of a consequent expression."""
 
     def __add__(self, other):
-        if not isinstance(other, Result):
+        if not isinstance(other, AddibleMixin):
             raise TypeError("can't add {} and {}"
                             .format(repr(type(self)), repr(type(other))))
 
-        if isinstance(other, Ignore):
-            return Add(self.temp)
-
         if self.temp == "off" or other.temp == "off":
-            return Result(self.temp)
+            return type(other)(self.temp)
 
-        if isinstance(other, Add):
-            return Add(self.temp + other.temp)
-
-        return Result(self.temp + other.temp)
+        return type(other)(self.temp + other.temp)
 
     def __repr__(self):
         return "Add({})".format(self.temp)
 
-class Ignore(Result):
-    """Result of a temperature expression which should be ignored."""
+class Break(ResultBase):
+    """Result of a temperature expression that should abort scheduling and
+       leave the temperature unchanged."""
 
     def __init__(self):
         # pylint: disable=super-init-not-called
         self.temp = None
 
-    def __add__(self, other):
-        if not isinstance(other, Result):
-            raise TypeError("can't add {} and {}"
-                            .format(repr(type(self)), repr(type(other))))
+    def __repr__(self):
+        return "Break()"
 
-        return copy.deepcopy(other)
+class Ignore(ResultBase):
+    """Result of a temperature expression which should be ignored."""
+
+    def __init__(self):
+        # pylint: disable=super-init-not-called
+        self.temp = None
 
     def __repr__(self):
         return "Ignore()"
@@ -178,7 +182,7 @@ def eval_temp_expr(temp_expr, extra_env=None):
         env.update(extra_env)
     result = eval(temp_expr, env)
 
-    if not isinstance(result, Result):
+    if not isinstance(result, ResultBase):
         result = Result(result)
 
     return result
