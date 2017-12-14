@@ -9,7 +9,7 @@ import importlib
 
 import appdaemon.appapi as appapi
 
-from . import __version__, config, util
+from . import __version__, config, expr, util
 
 
 __all__ = ["Heaty"]
@@ -251,7 +251,7 @@ class Heaty(appapi.AppDaemon):
             return
 
         if not self.cfg["untrusted_temp_expressions"] and \
-           util.parse_temp(temp_expr) is None:
+           expr.parse_temp(temp_expr) is None:
             self.log("!!! [{}] Ignoring heaty_set_temp event with an "
                      "untrusted temperature expression. "
                      "(untrusted_temp_expressions = false)".format(room_name))
@@ -463,27 +463,39 @@ class Heaty(appapi.AppDaemon):
     def get_scheduled_temp(self, room_name):
         """Computes and returns the temperature that is configured for
            the current time in the given room. If no temperature could
-           be found in the schedule (e.g. all rules evaluate to IGNORE),
+           be found in the schedule (e.g. all rules evaluate to Ignore()),
            None is returned."""
+
+        # pylint: disable=unidiomatic-typecheck
 
         room = self.cfg["rooms"][room_name]
 
+        result_sum = expr.Ignore()
         for rule in room["schedule"].get_matching_rules(self.datetime()):
-            temp = self.eval_temp_expr(rule.temp_expr)
+            result = self.eval_temp_expr(rule.temp_expr, room_name)
             if self.cfg["debug"]:
                 self.log("--- [{}] Evaluated temperature expression {} "
                          "to {}."
                          .format(room["friendly_name"],
-                                 repr(rule.temp_expr_raw), temp))
+                                 repr(rule.temp_expr_raw), result))
 
-            if temp in (None, util.TEMP_EXPR_IGNORE):
+            if result is None:
+                self.log("--- Skipping rule with faulty temperature "
+                         "expression: {}"
+                         .format(rule.temp_expr_raw))
+                continue
+
+            if isinstance(result, expr.Ignore):
                 # skip this rule
                 if self.cfg["debug"]:
                     self.log("--- [{}] Skipping this rule."
                              .format(room["friendly_name"]))
                 continue
 
-            return temp
+            result_sum += result
+
+            if type(result_sum) is expr.Result:
+                return result_sum.temp
 
     def set_scheduled_temp(self, room_name, force_resend=False):
         """Sets the temperature that is configured for the current time
@@ -524,22 +536,26 @@ class Heaty(appapi.AppDaemon):
            started if re-schedule timers are configured. reschedule_delay,
            if given, overwrites the value configured for the room."""
 
+        # pylint: disable=unidiomatic-typecheck
+
         if not self.master_switch_enabled() or \
            self.get_open_windows(room_name):
             return
 
         room = self.cfg["rooms"][room_name]
-        temp = self.eval_temp_expr(temp_expr)
+        result = self.eval_temp_expr(temp_expr, room_name)
         if self.cfg["debug"]:
             self.log("--- [{}] Evaluated temperature expression {} "
                      "to {}."
                      .format(room["friendly_name"], repr(temp_expr),
-                             repr(temp)))
+                             repr(result)))
 
-        if temp in (None, util.TEMP_EXPR_IGNORE):
+        if type(result) is not expr.Result:
             self.log("--- [{}] Ignoring temperature expression."
                      .format(room["friendly_name"]))
             return
+
+        temp = result.temp
 
         if self.current_temps[room_name] != temp or force_resend:
             self.set_temp(room_name, temp, scheduled=False)
@@ -551,30 +567,30 @@ class Heaty(appapi.AppDaemon):
         self.update_reschedule_timer(room_name,
                                      reschedule_delay=reschedule_delay)
 
-    def eval_temp_expr(self, temp_expr, extra_env=None):
-        """This is a wrapper around util.eval_temp_expr that adds the
-           app object and some helpers to the evaluation environment,
-           as well as all configured temp_expression_modules.
-           It also catches and logs any exception which is raised
-           during evaluation. In this case, None is returned."""
+    def eval_temp_expr(self, temp_expr, room_name):
+        """This is a wrapper around expr.eval_temp_expr that adds the
+           app object, the room name  and some helpers to the evaluation
+           environment, as well as all configured
+           temp_expression_modules. It also catches and logs any
+           exception which is raised during evaluation. In this case,
+           None is returned."""
 
-        if extra_env is None:
-            extra_env = {}
-
-        extra_env.setdefault("app", self)
         # use date/time provided by appdaemon to support time-traveling
         now = self.datetime()
-        extra_env.setdefault("now", now)
-        extra_env.setdefault("date", now.date())
-        extra_env.setdefault("time", now.time())
-
+        extra_env = {
+            "app": self,
+            "room_name": room_name,
+            "now": now,
+            "date": now.date(),
+            "time": now.time(),
+        }
         extra_env.update(self.temp_expression_modules)
 
         try:
-            return util.eval_temp_expr(temp_expr, extra_env=extra_env)
+            return expr.eval_temp_expr(temp_expr, extra_env=extra_env)
         except Exception as err:  # pylint: disable=broad-except
-            self.log("!!! Error while evaluating temperature expression: {}"
-                     .format(repr(err)))
+            self.log("!!! Error while evaluating temperature expression: "
+                     "{}".format(repr(err)))
 
     def update_reschedule_timer(self, room_name, reschedule_delay=None,
                                 force=False):

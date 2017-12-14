@@ -222,31 +222,37 @@ are evaluated at runtime. When Heaty parses its configuration, all
 temperature expressions are pre-compiled to make their later evaluation
 more performant.
 
-Temperature expressions must evaluate to one of the following values:
+Temperature expressions must evaluate to a ``Result`` object holding
+the desired temperature value. Such an object can be created like
+``Result(19)`` or ``Result("off")``. If your expression evaluates to
+an ``int``, ``float`` or ``str`` type, Heaty converts it to a
+``Result`` automatically for convenience.
 
-* a ``float`` or ``int`` which is used as the temperature,
-* a ``str`` containing a number, which is converted to a ``float``
-  automatically for convenience,
-* the string ``"off"``, which means just that or
-* the value ``IGNORE`` (not the string), which causes the rule to
-  be treated as if it doesn't exist at all. If one exists, the next
-  rule is evaluated in this case.
+An object of one of the following sub-types of ``Result`` can be
+returned to influence the way your result is treated.
+
+* ``Add(value)``, which causes ``value`` to be added to the result of
+  a consequent rule. This is continued until a rule evaluates to a real
+  ``Result``.
+* ``Ignore()``, which causes the rule to be treated as if it doesn't
+  exist at all. If one exists, the next rule is evaluated in this case.
 
 There is an object available under the name ``app`` which represents
 the ``appdaemon.appapi.AppDaemon`` object of Heaty. You could,
 for instance, retrieve values of input sliders via the normal
 AppDaemon API.
 
-The following variables are available inside time expressions:
+Beside the return types like ``Result``, ``Add`` and ``Ignore``, the
+following global variables are available inside time expressions:
 
 * ``app``: the appdaemon.appapi.AppDaemon object
-* ``datetime``: Python's ``datetime`` module
+* ``room_name``: the name of the room the expression is evaluated for
+  as configured in Heaty's configuration (not the friendly name)
 * ``now``: a ``datetime.datetime`` object containing the current date
   and time
 * ``date``: a shortcut for ``now.date()``
 * ``time``: a shortcut for ``now.time()``
-* ``IGNORE``: the special return value which causes the expression to be
-  ignored (see above)
+* ``datetime``: Python's ``datetime`` module
 
 Using code from custom modules
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -279,11 +285,13 @@ as follows:
 
 ::
 
-    def get_temp(room_name, app, IGNORE):
+    from hass_heaty import expr
+
+    def get_temp(room_name, app):
         if room_name == "bath":
             if app.get_state("switch.take_a_bath") == "on":
                 return 22
-        return IGNORE
+        return expr.Ignore()
 
 Save the code as ``my_mod.py`` somewhere Python can find it.
 The easiest way is to store it inside AppDaemon's ``apps`` directory.
@@ -297,7 +305,7 @@ order):
 ::
 
     schedule:
-    - temp: my_mod.get_temp("bath", app, IGNORE)
+    - temp: my_mod.get_temp(room_name, app)
     - temp: 19
 
 Last step is to write a simple Home Assistant automation to emit a
@@ -316,13 +324,14 @@ re-schedule event whenever the state of ``switch.take_a_bath`` changes.
 
 We're done! Now, whenever we toggle the ``take_a_bath`` switch, the
 schedules are re-evaluated and our first schedule rule executes.
-The rule invokes our custom function, passing to it the room's name,
-the ``appdaemon.appapi.AppDaemon`` object and the value that is
-expected in case the rule should be ignored. Our custom function
+The rule invokes our custom function, passing to it the room's name
+and the ``appdaemon.appapi.AppDaemon`` object. Our custom function
 checks the state of the ``take_a_bath`` switch and, if it's enabled,
 causes the temperature to be set to 22 degrees. However, if the switch
 is off or we called it for a room it actually has no clue about,
 the rule is ignored completely.
+Note that we imported the ``hass_heaty.expr`` module which gives us
+access to ``Ignore`` as well as all other ``Result`` types.
 
 If that happens, the second rule is processed, which always evaluates
 to 19 degrees.
@@ -338,7 +347,7 @@ effect, but without the use of any external Python module:
 ::
 
     schedule:
-    - temp: 22 if app.get_state("switch.take_a_bath") == "on" else IGNORE
+    - temp: 22 if app.get_state("switch.take_a_bath") == "on" else Ignore()
     - temp: 19
 
 Basically, we inlined the Python code we previously placed in

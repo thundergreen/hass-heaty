@@ -4,7 +4,7 @@ This module implements the Schedule and Rule classes.
 
 import datetime
 
-from . import util
+from . import expr
 
 
 class Rule:
@@ -29,7 +29,7 @@ class Rule:
         if isinstance(temp_expr, str):
             temp_expr = temp_expr.strip()
         self.temp_expr_raw = temp_expr
-        temp = util.parse_temp(temp_expr)
+        temp = expr.parse_temp(temp_expr)
         if temp is None:
             # this is a temperature expression, precompile it
             self.temp_expr = compile(temp_expr, "temp_expr", "eval")

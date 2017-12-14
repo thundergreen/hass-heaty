@@ -12,8 +12,6 @@ RANGE_PATTERN = re.compile(r"^(\d+)\-(\d+)$")
 TIME_PATTERN = re.compile(r"^([01]\d|2[0123])[\:\.]([012345]\d)$")
 # strftime-compatible format string for military time
 TIME_FORMAT = "%H:%M"
-# special return value for temperature expressions
-TEMP_EXPR_IGNORE = "ignore"
 
 
 def expand_range_string(range_string):
@@ -44,55 +42,3 @@ def parse_time_string(time_str):
     match = TIME_PATTERN.match(time_str)
     if match:
         return datetime.time(int(match.group(1)), int(match.group(2)))
-
-def parse_temp(temp):
-    """Converts the given value to a valid temperature of type float or "off".
-       If value is a string, all whitespace is removed first.
-       If conversion is not possible, None is returned."""
-
-    if isinstance(temp, str):
-        temp = "".join(temp.split())
-        if temp.lower() == "off":
-            return "off"
-        temp = temp.strip()
-    try:
-        return float(temp)
-    except (ValueError, TypeError):
-        return
-
-def build_time_expression_env():
-    """This function builds and returns an environment usable as globals
-       for the evaluation of a time expression."""
-    return {
-        "IGNORE":   TEMP_EXPR_IGNORE,
-        "datetime": datetime,
-    }
-
-def eval_temp_expr(temp_expr, extra_env=None):
-    """This method evaluates the given temperature expression.
-       The evaluation result is returned. The items of the extra_env
-       dict are added to the globals available during evaluation.
-       The result is either TEMP_EXPR_IGNORE or a valid temperature
-       value as returned by parse_temp()."""
-
-    parsed = parse_temp(temp_expr)
-    if parsed:
-        # not an expression, just return the parsed value
-        return parsed
-
-    # this is a dynamic temperature expression, evaluate it
-    env = build_time_expression_env()
-    if extra_env:
-        env.update(extra_env)
-    temp = eval(temp_expr, env)
-
-    if temp == TEMP_EXPR_IGNORE:
-        # IGNORE is a special case, pass it through
-        return temp
-
-    parsed = parse_temp(temp)
-    if not parsed:
-        raise ValueError("{} is no valid temperature"
-                         .format(repr(parsed)))
-
-    return parsed
