@@ -102,7 +102,7 @@ class Temp:
             if not other:
                 # -0 changes nothing
                 return Temp(self.value)
-            other *= -1
+            other = Temp(-other)
 
         if type(self) is not type(other):
             raise TypeError("can't subtract {} and {}"
