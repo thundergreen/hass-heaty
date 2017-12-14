@@ -70,7 +70,7 @@ heaty_full:
   # 4 °C is recommended to protect against frost-induced damage.
   # A value of "off" will set the thermostat's operation mode
   # to off explicitly.
-  # (optional, default: off)
+  # (optional, default: "off")
   off_temp: 4
 
   # Here you can define Python modules that should be available from
@@ -114,8 +114,8 @@ heaty_full:
     # operation modes.
     # (optional, default: Heat)
     opmode_heat: Heat
-    # (optional, default: Off)
-    opmode_off: Off
+    # (optional, default: "Off")
+    opmode_off: "Off"
 
     # You might want to use an alternative service that receives
     # the operation mode value.
