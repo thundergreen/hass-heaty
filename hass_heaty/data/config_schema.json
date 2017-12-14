@@ -80,7 +80,6 @@
 			"type": "object",
 			"properties": {
 				"friendly_name": { "type": "string" },
-				"schedule_switch": { "$ref": "#/definitions/optional_entity_name", "default": null },
 				"replicate_changes": { "type": "boolean", "default": true },
 				"reschedule_delay": { "type": "integer", "min": 0, "default": 0 },
 				"thermostats": {
@@ -131,7 +130,6 @@
 		"debug": { "type": "boolean", "default": false },
 		"untrusted_temp_expressions": { "type": "boolean", "default": false },
 		"master_switch": { "$ref": "#/definitions/optional_entity_name", "default": null },
-		"master_controls_schedule_switches": { "type": "boolean", "default": true },
 		"off_temp": { "$ref": "#/definitions/temperature", "default": "off" },
 		"temp_expression_modules": {
 			"type": "object",

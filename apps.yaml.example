@@ -65,11 +65,6 @@ heaty_full:
   # (optional, default: none)
   master_switch: input_boolean.heating_master
 
-  # Whether to automatically turn all schedule switches on together
-  # with the master switch.
-  # (optional, default: true)
-  master_controls_schedule_switches: true
-
   # Temperature that should be set when heatings are turned off.
   # 4 °C is recommended to protect against frost-induced damage.
   # A value of "off" will set the thermostat's operation mode
@@ -176,12 +171,6 @@ heaty_full:
       # (optional)
       friendly_name: Living Room
 
-      # If turned off, this switch disables the scheduled control
-      # for this room.
-      # You may use any switch that has the states "on" and "off".
-      # (optional)
-      schedule_switch: input_boolean.heating_schedule_living
-
       # This setting controls whether changes made locally at one thermostat
       # should automatically be replicated at the other ones in this
       # particular room.
@@ -193,7 +182,7 @@ heaty_full:
       # If you, for instance, change the target temperature at one of your
       # thermostats and this value is set to 120, Heaty will again apply
       # the schedule 2 hours after you made the change.
-      # (optional, default: 0)
+      # (optional, default: 0, which means never re-schedule)
       reschedule_delay: 0
 
       # All thermostats of this room go here.
