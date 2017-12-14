@@ -29,12 +29,13 @@ class Rule:
         if isinstance(temp_expr, str):
             temp_expr = temp_expr.strip()
         self.temp_expr_raw = temp_expr
-        temp = expr.parse_temp(temp_expr)
-        if temp is None:
+        try:
+            temp = expr.Temp(temp_expr)
+        except ValueError:
             # this is a temperature expression, precompile it
             self.temp_expr = compile(temp_expr, "temp_expr", "eval")
         else:
-            self.temp_expr = temp_expr
+            self.temp_expr = temp
 
     def check_constraints(self, date):
         """Checks all constraints of this rule against the given date."""

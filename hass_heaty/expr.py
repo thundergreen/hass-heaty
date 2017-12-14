@@ -4,9 +4,10 @@ Module containing functionality to evaluate temperature expressions.
 
 import copy
 import datetime
+import functools
 
 
-__all__ = ["Add", "Ignore", "Result"]
+__all__ = ["Add", "Ignore", "Result", "Temp"]
 
 
 # special return values for temperature expressions
@@ -14,11 +15,7 @@ class Result:
     """Holds the result of a temperature expression."""
 
     def __init__(self, temp):
-        parsed = parse_temp(temp)
-        if not parsed:
-            raise ValueError("{} is no valid temperature"
-                             .format(repr(parsed)))
-        self.temp = parsed
+        self.temp = Temp(temp)
 
     def __eq__(self, other):
         return type(self) is type(other) and self.temp == other.temp
@@ -67,20 +64,93 @@ class Ignore(Result):
         return "Ignore()"
 
 
-def parse_temp(temp):
-    """Converts the given value to a valid temperature of type float or "off".
-       If value is a string, all whitespace is removed first.
-       If conversion is not possible, None is returned."""
+@functools.total_ordering
+class Temp:
+    """A class holding a temperature value."""
 
-    if isinstance(temp, str):
-        temp = "".join(temp.split())
-        if temp.lower() == "off":
-            return "off"
-        temp = temp.strip()
-    try:
-        return float(temp)
-    except (ValueError, TypeError):
-        return
+    def __init__(self, value):
+        if isinstance(value, Temp):
+            # just copy the value over
+            value = value.value
+        parsed = self.parse_temp(value)
+        if parsed is None:
+            raise ValueError("{} is no valid temperature"
+                             .format(repr(value)))
+        self.value = parsed
+
+    def __add__(self, other):
+        if isinstance(other, (float, int)):
+            if not other:
+                # +0 changes nothing
+                return Temp(self.value)
+            other = Temp(other)
+
+        if type(self) is not type(other):
+            raise TypeError("can't add {} and {}"
+                            .format(repr(type(self)), repr(type(other))))
+
+        if self.is_off() or other.is_off():
+            return Temp("off")
+        return Temp(self.value + other.value)
+
+    def __sub__(self, other):
+        if isinstance(other, (float, int)):
+            if not other:
+                # -0 changes nothing
+                return Temp(self.value)
+            other *= -1
+
+        if type(self) is not type(other):
+            raise TypeError("can't subtract {} and {}"
+                            .format(repr(type(self)), repr(type(other))))
+
+        if self.is_off() or other.is_off():
+            return Temp("off")
+        return Temp(self.value - other.value)
+
+    def __eq__(self, other):
+        return type(self) is type(other) and self.value == other.value
+
+    def __lt__(self, other):
+        if isinstance(other, (float, int)):
+            other = Temp(other)
+
+        if type(self) is not type(other):
+            raise TypeError("can't compare {} and {}"
+                            .format(repr(type(self)), repr(type(other))))
+
+        if not self.is_off() and other.is_off():
+            return False
+        if self.is_off() and not other.is_off() or \
+           self.value < other.value:
+            return True
+        return False
+
+    def __repr__(self):
+        if self.is_off():
+            return "OFF"
+        return repr(self.value)
+
+    def is_off(self):
+        """Returns True if this temperature is "off", False otherwise."""
+        return isinstance(self.value, str) and self.value == "off"
+
+    @staticmethod
+    def parse_temp(value):
+        """Converts the given value to a valid temperature of type float or "off".
+           If value is a string, all whitespace is removed first.
+           If conversion is not possible, None is returned."""
+
+        if isinstance(value, str):
+            value = "".join(value.split())
+            if value.lower() == "off":
+                return "off"
+
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            return
+
 
 def build_time_expression_env():
     """This function builds and returns an environment usable as globals

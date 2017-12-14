@@ -8,7 +8,7 @@ import os
 
 from jsonschema import Draft4Validator, validators
 
-from . import schedule, util
+from . import expr, schedule, util
 
 
 # file containing the jsonschema of Heaty's configuration
@@ -116,7 +116,7 @@ def parse_config(cfg):
     patch_if_none(cfg, "rooms", {})
     for key in cfg["rooms"]:
         patch_if_none(cfg["rooms"], key, {})
-    for room_name, room in cfg["rooms"].items():
+    for room in cfg["rooms"].values():
         patch_if_none(room, "thermostats", {})
         for key in room["thermostats"]:
             patch_if_none(room["thermostats"], key, {})
@@ -126,6 +126,16 @@ def parse_config(cfg):
         patch_if_none(room, "schedule", [])
 
     validate_config(cfg)
+
+    cfg["off_temp"] = expr.Temp(cfg["off_temp"])
+    min_temp = cfg["thermostat_defaults"].get("min_temp")
+    if min_temp is not None:
+        cfg["thermostat_defaults"]["min_temp"] = expr.Temp(min_temp)
+    for room in cfg["rooms"].values():
+        for key in room["thermostats"]:
+            min_temp = room["thermostats"][key].get("min_temp")
+            if min_temp is not None:
+                room["thermostats"][key]["min_temp"] = expr.Temp(min_temp)
 
     cfg["schedule_prepend"] = parse_schedule(cfg["schedule_prepend"])
     cfg["schedule_append"] = parse_schedule(cfg["schedule_append"])

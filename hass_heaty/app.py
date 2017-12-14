@@ -251,7 +251,7 @@ class Heaty(appapi.AppDaemon):
             return
 
         if not self.cfg["untrusted_temp_expressions"] and \
-           expr.parse_temp(temp_expr) is None:
+           expr.Temp.parse_temp(temp_expr) is None:
             self.log("!!! [{}] Ignoring heaty_set_temp event with an "
                      "untrusted temperature expression. "
                      "(untrusted_temp_expressions = false)".format(room_name))
@@ -275,7 +275,7 @@ class Heaty(appapi.AppDaemon):
         room = self.cfg["rooms"][room_name]
         therm = room["thermostats"][entity]
 
-        opmode = new["attributes"].get(therm["opmode_state_attr"])
+        opmode = new.get("attributes", {}).get(therm["opmode_state_attr"])
         if self.cfg["debug"]:
             self.log("--> [{}] {}: attribute {} is {}"
                      .format(room["friendly_name"], entity,
@@ -285,9 +285,10 @@ class Heaty(appapi.AppDaemon):
             # don't consider this thermostat
             return
         elif opmode == therm["opmode_off"]:
-            temp = "off"
-            if isinstance(self.current_temps[room_name], (float, int)) and \
-               isinstance(therm["min_temp"], (float, int)) and \
+            temp = expr.Temp("off")
+            if isinstance(self.current_temps[room_name], expr.Temp) and \
+               isinstance(therm["min_temp"], expr.Temp) and \
+               not self.current_temps[room_name].is_off() and \
                self.current_temps[room_name] + therm["delta"] < \
                therm["min_temp"]:
                 # The thermostat reported itself to be off, but the
@@ -301,15 +302,16 @@ class Heaty(appapi.AppDaemon):
                 # care to not mess up self.current_temps.
                 return
         else:
-            temp = new["attributes"].get(therm["temp_state_attr"])
+            temp = new.get("attributes", {}).get(therm["temp_state_attr"])
             if self.cfg["debug"]:
                 self.log("--> [{}] {}: attribute {} is {}"
                          .format(room["friendly_name"], entity,
                                  therm["temp_state_attr"], temp))
-            if temp is None:
-                # don't consider this thermostat
+            try:
+                temp = expr.Temp(temp) - therm["delta"]
+            except ValueError:
+                # not a valid temperature, don't consider this thermostat
                 return
-            temp = float(temp) - therm["delta"]
 
         if temp == self.current_temps[room_name]:
             # nothing changed, hence no further actions needed
@@ -432,12 +434,12 @@ class Heaty(appapi.AppDaemon):
         self.current_temps[room_name] = target_temp
 
         for therm_name, therm in room["thermostats"].items():
-            if target_temp == "off":
+            if target_temp.is_off():
                 value = None
                 opmode = therm["opmode_off"]
             else:
                 value = target_temp + therm["delta"]
-                if therm["min_temp"] is not None and \
+                if isinstance(therm["min_temp"], expr.Temp) and \
                    value < therm["min_temp"]:
                     value = None
                     opmode = therm["opmode_off"]
@@ -457,7 +459,7 @@ class Heaty(appapi.AppDaemon):
             self.call_service(therm["opmode_service"], **attrs)
             if value is not None:
                 attrs = {"entity_id": therm_name,
-                         therm["temp_service_attr"]: value}
+                         therm["temp_service_attr"]: value.value}
                 self.call_service(therm["temp_service"], **attrs)
 
     def get_scheduled_temp(self, room_name):
