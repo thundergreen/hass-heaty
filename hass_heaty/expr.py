@@ -38,9 +38,6 @@ class Add(ResultBase, AddibleMixin):
             raise TypeError("can't add {} and {}"
                             .format(repr(type(self)), repr(type(other))))
 
-        if self.temp.is_off() or other.temp and other.temp.is_off():
-            return type(other)("off")
-
         return type(other)(self.temp + other.temp)
 
     def __repr__(self):
@@ -84,9 +81,6 @@ class Temp:
 
     def __add__(self, other):
         if isinstance(other, (float, int)):
-            if not other:
-                # +0 changes nothing
-                return Temp(self.value)
             other = Temp(other)
         elif not isinstance(other, Temp):
             raise TypeError("can't add {} and {}"
@@ -94,24 +88,20 @@ class Temp:
 
         # OFF + something is OFF
         if self.is_off() or other.is_off():
-            return Temp(self.value)
+            return Temp("off")
 
         return Temp(self.value + other.value)
 
+    def __neg__(self):
+        # pylint: disable=invalid-unary-operand-type
+        if self.is_off():
+            return Temp(self.value)
+        return Temp(-self.value)
+
     def __sub__(self, other):
         if isinstance(other, (float, int)):
-            if not other:
-                # -0 changes nothing
-                return Temp(self.value)
             other = Temp(other)
-        elif not isinstance(other, Temp):
-            raise TypeError("can't subtract {} and {}"
-                            .format(repr(type(self)), repr(type(other))))
-
-        if self.is_off() or other.is_off():
-            return Temp("off")
-
-        return Temp(self.value - other.value)
+        return self.__add__(-other)
 
     def __eq__(self, other):
         return isinstance(other, Temp) and self.value == other.value
