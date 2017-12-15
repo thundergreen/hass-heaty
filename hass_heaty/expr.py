@@ -88,13 +88,16 @@ class Temp:
                 # +0 changes nothing
                 return Temp(self.value)
             other = Temp(other)
-
-        if type(self) is not type(other):
+        elif not isinstance(other, type(self)):
             raise TypeError("can't add {} and {}"
                             .format(repr(type(self)), repr(type(other))))
 
-        if self.is_off() or other.is_off():
-            return Temp("off")
+        # OFF changes nothing
+        if self.is_off():
+            return Temp(other.value)
+        elif other.is_off():
+            return Temp(self.value)
+
         return Temp(self.value + other.value)
 
     def __sub__(self, other):
@@ -102,14 +105,14 @@ class Temp:
             if not other:
                 # -0 changes nothing
                 return Temp(self.value)
-            other = Temp(-other)
-
-        if type(self) is not type(other):
+            other = Temp(other)
+        elif not isinstance(other, type(self)):
             raise TypeError("can't subtract {} and {}"
                             .format(repr(type(self)), repr(type(other))))
 
         if self.is_off() or other.is_off():
             return Temp("off")
+
         return Temp(self.value - other.value)
 
     def __eq__(self, other):
