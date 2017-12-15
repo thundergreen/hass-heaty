@@ -49,29 +49,29 @@ heaty_full:
   # for Heaty to be able to determine the instance the event is
   # intended for.
   # (optional, default: null)
-  heaty_id: null
+  #heaty_id: null
 
   # Enable debugging output
   # (optional, default: false)
-  debug: false
+  #debug: false
 
   # If you enable this option, potentially harmful temperature
   # expressions received in a heaty_set_temp event are evaluated.
   # For more information, please see README.rst.
   # (optional, default: false)
-  untrusted_temp_expressions: false
+  #untrusted_temp_expressions: false
 
   # This switch can be used to turn off all rooms (e.g. for vacation times).
   # You may use any switch that has the states "on" and "off".
   # (optional, default: none)
-  master_switch: input_boolean.heating_master
+  #master_switch: input_boolean.heating_master
 
   # Temperature that should be set when heatings are turned off.
   # 4 °C is recommended to protect against frost-induced damage.
   # A value of "off" will set the thermostat's operation mode
   # to off explicitly.
   # (optional, default: "off")
-  off_temp: 4
+  #off_temp: "off"
 
   # Here you can define Python modules that should be available from
   # inside your temperature expressions. These modules are imported
@@ -79,12 +79,12 @@ heaty_full:
   # after making changes to these modules.
   # (optional)
   temp_expression_modules:
-    math:
-    my_custom_module:
+    #math:
+    #my_custom_module:
       # Optionally, define an alternative name under which the module
       # should be available.
       # (optional)
-      as: alt_name
+      #as: alt_name
 
   # In the following config block, you may define settings that affect
   # all thermostats in your setup. These can be overwritten on a per
@@ -95,51 +95,51 @@ heaty_full:
     # thermostat in order to correct potential inaccuracies of
     # the temperature sensor.
     # (optional, default: 0)
-    delta: 0.5
+    #delta: 0
 
     # The minimum temperature the thermostat supports.
     # If a lower temperature than this is going to be set, the operation
     # mode will be switched off instead of setting the temperature.
     # (optional, default: null, which means there is no limitation)
-    min_temp: 8
+    #min_temp: null
 
     # Whether you'd not like to query initial temperature values from
     # the thermostat. It is recommended to leave this option disabled
     # in order for Heaty to notice manual temperature changes made at
     # the thermostat.
     # (optional, default: false)
-    ignore_updates: false
+    #ignore_updates: false
 
     # These two settings can be used to tweak the names of the
     # operation modes.
     # (optional, default: Heat)
-    opmode_heat: Heat
+    #opmode_heat: Heat
     # (optional, default: "Off")
-    opmode_off: "Off"
+    #opmode_off: "Off"
 
     # You might want to use an alternative service that receives
     # the operation mode value.
     # (optional, default: climate/set_operation_mode)
-    opmode_service: climate/set_operation_mode
+    #opmode_service: climate/set_operation_mode
     # (optional, default: operation_mode)
-    opmode_service_attr: operation_mode
+    #opmode_service_attr: operation_mode
     # Entity attribute that holds the current operation mode.
     # This is used to detect manual temperature adjustments and provide
     # correct temperature values on startup.
     # (optional, default: operation_mode)
-    opmode_state_attr: operation_mode
+    #opmode_state_attr: operation_mode
 
     # You might want to use an alternative service that receives
     # the temperature value.
     # (optional, default: climate/set_temperature)
     temp_service: climate/set_temperature
     # (optional, default: temperature)
-    temp_service_attr: temperature
+    #temp_service_attr: temperature
     # Entity attribute that holds the current target temperature.
     # This is used to detect manual temperature adjustments and provide
     # correct temperature values on startup.
     # (optional, default: temperature)
-    temp_state_attr: temperature
+    #temp_state_attr: temperature
 
   # In the following config block, you may define settings that affect
   # all window sensors in your setup. These can be overwritten on a per
@@ -149,12 +149,12 @@ heaty_full:
     # Sensor state needs to stay constant for this number of seconds
     #  before the window open/closed detection kicks in.
     # (optional, default: 10)
-    delay: 10
+    #delay: 10
 
     # By default, a state of "on" means open and "off" means closed.
     # When this is set to True, "on" means closed and "off" means open.
     # (optional, default: false)
-    inverted: false
+    #inverted: false
 
   # Add schedule rules you want to have prepended to each room's schedule
   # automatically here.
@@ -176,7 +176,7 @@ heaty_full:
       # should automatically be replicated at the other ones in this
       # particular room.
       # (optional, default: true)
-      replicate_changes: true
+      #replicate_changes: true
 
       # Set this value to a number of minutes and Heaty will automatically
       # re-schedule the temperature after a manual change has been made.
@@ -184,14 +184,14 @@ heaty_full:
       # thermostats and this value is set to 120, Heaty will again apply
       # the schedule 2 hours after you made the change.
       # (optional, default: 0, which means never re-schedule)
-      reschedule_delay: 0
+      #reschedule_delay: 0
 
       # All thermostats of this room go here.
       thermostats:
 
         climate.living1
-          # We could, for instance, overwrite the delta for this
-          # particular thermostat.
+          # We could, for instance, overwrite the delta defined in the
+          # defaults, if any, for this particular thermostat only.
           delta: 1.0
 
         climate.living_2:
