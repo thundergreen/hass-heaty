@@ -225,7 +225,7 @@ more performant.
 Temperature expressions must evaluate to an object of type
 ``ResultBase``. However, you should always return one of its sub-types.
 
-Such an object can be created like ``Result(19)`` or ``Result("off")``.
+Such an object can be created like ``Result(19)`` or ``Result(OFF)``.
 If your expression evaluates to an ``int``, ``float`` or ``str`` type,
 Heaty converts it to a ``Result`` automatically for convenience.
 
@@ -241,6 +241,9 @@ returned to influence the way your result is treated.
   exist at all. If one exists, the next rule is evaluated in this case.
 * ``Result(value)``: just the final result which will be used as the
   temperature. Schedule lookup is aborted at this point.
+
+If you want to turn the thermostats in a room off, there is a special
+value available under the name ``OFF``. Just return that.
 
 There is an object available under the name ``app`` which represents
 the ``appdaemon.appapi.AppDaemon`` object of Heaty. You could,
@@ -291,6 +294,8 @@ as follows:
 
 ::
 
+    # This module gives us access to Ignore as well as all other
+    # ResultBase sub-types and OFF.
     from hass_heaty import expr
 
     def get_temp(room_name, app):
@@ -336,8 +341,6 @@ checks the state of the ``take_a_bath`` switch and, if it's enabled,
 causes the temperature to be set to 22 degrees. However, if the switch
 is off or we called it for a room it actually has no clue about,
 the rule is ignored completely.
-Note that we imported the ``hass_heaty.expr`` module which gives us
-access to ``Ignore`` as well as all other ``Result`` types.
 
 If that happens, the second rule is processed, which always evaluates
 to 19 degrees.

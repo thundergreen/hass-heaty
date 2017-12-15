@@ -6,7 +6,11 @@ import datetime
 import functools
 
 
-__all__ = ["Add", "Break", "Ignore", "Result", "Temp"]
+__all__ = ["Add", "Break", "Ignore", "OFF", "Result", "Temp"]
+
+
+# special value Temp can be initialized with
+OFF = "off"
 
 
 class AddibleMixin:
@@ -88,7 +92,7 @@ class Temp:
 
         # OFF + something is OFF
         if self.is_off() or other.is_off():
-            return Temp("off")
+            return Temp(OFF)
 
         return Temp(self.value + other.value)
 
@@ -127,19 +131,19 @@ class Temp:
         return repr(self.value)
 
     def is_off(self):
-        """Returns True if this temperature is "off", False otherwise."""
-        return isinstance(self.value, str) and self.value == "off"
+        """Returns True if this temperature is OFF, False otherwise."""
+        return self.value == OFF
 
     @staticmethod
     def parse_temp(value):
-        """Converts the given value to a valid temperature of type float or "off".
+        """Converts the given value to a valid temperature of type float or OFF.
            If value is a string, all whitespace is removed first.
            If conversion is not possible, None is returned."""
 
         if isinstance(value, str):
             value = "".join(value.split())
-            if value.lower() == "off":
-                return "off"
+            if value.lower() == OFF:
+                return OFF
 
         try:
             return float(value)
