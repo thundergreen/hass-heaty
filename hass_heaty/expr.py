@@ -38,8 +38,8 @@ class Add(ResultBase, AddibleMixin):
             raise TypeError("can't add {} and {}"
                             .format(repr(type(self)), repr(type(other))))
 
-        if self.temp == "off" or other.temp == "off":
-            return type(other)(self.temp)
+        if self.temp.is_off() or other.temp and other.temp.is_off():
+            return type(other)("off")
 
         return type(other)(self.temp + other.temp)
 
@@ -92,10 +92,8 @@ class Temp:
             raise TypeError("can't add {} and {}"
                             .format(repr(type(self)), repr(type(other))))
 
-        # OFF changes nothing
-        if self.is_off():
-            return Temp(other.value)
-        elif other.is_off():
+        # OFF + something is OFF
+        if self.is_off() or other.is_off():
             return Temp(self.value)
 
         return Temp(self.value + other.value)
