@@ -88,7 +88,7 @@ class Temp:
                 # +0 changes nothing
                 return Temp(self.value)
             other = Temp(other)
-        elif not isinstance(other, type(self)):
+        elif not isinstance(other, Temp):
             raise TypeError("can't add {} and {}"
                             .format(repr(type(self)), repr(type(other))))
 
@@ -106,7 +106,7 @@ class Temp:
                 # -0 changes nothing
                 return Temp(self.value)
             other = Temp(other)
-        elif not isinstance(other, type(self)):
+        elif not isinstance(other, Temp):
             raise TypeError("can't subtract {} and {}"
                             .format(repr(type(self)), repr(type(other))))
 
@@ -116,7 +116,7 @@ class Temp:
         return Temp(self.value - other.value)
 
     def __eq__(self, other):
-        return type(self) is type(other) and self.value == other.value
+        return isinstance(other, Temp) and self.value == other.value
 
     def __lt__(self, other):
         if isinstance(other, (float, int)):
@@ -173,6 +173,8 @@ def eval_temp_expr(temp_expr, extra_env=None):
        The evaluation result is returned. The items of the extra_env
        dict are added to the globals available during evaluation.
        The result is an instance of Result."""
+
+    # pylint: disable=eval-used
 
     try:
         return Result(temp_expr)
