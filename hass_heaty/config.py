@@ -143,11 +143,13 @@ def parse_config(cfg):
     # set some initial values
     for room_name, room in cfg["rooms"].items():
         room.setdefault("friendly_name", room_name)
+        room["wanted_temp"] = None
 
         # copy settings from defaults sections to this room
         for therm in room["thermostats"].values():
             for key, val in cfg["thermostat_defaults"].items():
                 therm.setdefault(key, val)
+            therm["current_temp"] = None
         for sensor in room["window_sensors"].values():
             for key, val in cfg["window_sensor_defaults"].items():
                 sensor.setdefault(key, val)

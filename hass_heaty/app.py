@@ -24,8 +24,6 @@ class Heaty(appapi.AppDaemon):
         super(Heaty, self).__init__(*args, **kwargs)
         self.cfg = None
         self.temp_expression_modules = {}
-        self.current_temps = {}
-        self.reschedule_timers = {}
 
     def initialize(self):
         """Parses the configuration, initializes all timers, state and
@@ -63,8 +61,6 @@ class Heaty(appapi.AppDaemon):
 
         self.log("--- Getting current temperatures from thermostats.")
         for room_name, room in self.cfg["rooms"].items():
-            # set placeholder value in case there are no thermostats
-            self.current_temps[room_name] = None
             for therm_name, therm in room["thermostats"].items():
                 if therm["ignore_updates"]:
                     # don't consider this thermostat for state updates
@@ -76,7 +72,7 @@ class Heaty(appapi.AppDaemon):
                     self.log("!!! State for thermostat {} is None, "
                              "ignoring it.".format(therm_name))
                     continue
-                # populate self.current_temps by simulating a state change
+                # populate therm["current_temp"] by simulating a state change
                 self.thermostat_state_cb(therm_name, "all", state, state,
                                          {"room_name": room_name,
                                           "no_reschedule": True})
@@ -166,7 +162,7 @@ class Heaty(appapi.AppDaemon):
             self.log("--- [{}] Schedule timer fired."
                      .format(room["friendly_name"]))
 
-        if room_name in self.reschedule_timers:
+        if room.get("reschedule_timer"):
             # don't schedule now, wait for the timer instead
             self.log("--- [{}] Not scheduling now due to a running "
                      "re-schedule timer."
@@ -182,7 +178,7 @@ class Heaty(appapi.AppDaemon):
         self.log("--- [{}] Re-schedule timer fired."
                  .format(room["friendly_name"]))
         try:
-            del self.reschedule_timers[room_name]
+            del room["reschedule_timer"]
         except KeyError:
             pass
         self.set_scheduled_temp(room_name)
@@ -280,21 +276,6 @@ class Heaty(appapi.AppDaemon):
             return
         elif opmode == therm["opmode_off"]:
             temp = expr.Temp("off")
-            if isinstance(self.current_temps[room_name], expr.Temp) and \
-               isinstance(therm["min_temp"], expr.Temp) and \
-               not self.current_temps[room_name].is_off() and \
-               self.current_temps[room_name] + therm["delta"] < \
-               therm["min_temp"]:
-                # The thermostat reported itself to be off, but the
-                # expected temperature is outside the thermostat's
-                # supported temperature range anyway. Hence the report
-                # means no change and can safely be ignored.
-                return
-            if self.get_open_windows(room_name):
-                # After window has been opened and heating turned off,
-                # thermostats usually report to be off, but we don't
-                # care to not mess up self.current_temps.
-                return
         else:
             temp = new.get("attributes", {}).get(therm["temp_state_attr"])
             if self.cfg["debug"]:
@@ -307,20 +288,37 @@ class Heaty(appapi.AppDaemon):
                 # not a valid temperature, don't consider this thermostat
                 return
 
-        if temp == self.current_temps[room_name]:
+        if temp == therm["current_temp"]:
             # nothing changed, hence no further actions needed
             return
 
         self.log("--> [{}] Received target temperature {} from thermostat."
                  .format(room["friendly_name"], repr(temp)))
+        therm["current_temp"] = temp
+
+        if temp.is_off() and \
+           isinstance(room["wanted_temp"], expr.Temp) and \
+           isinstance(therm["min_temp"], expr.Temp) and \
+           not room["wanted_temp"].is_off() and \
+           room["wanted_temp"] + therm["delta"] < \
+           therm["min_temp"]:
+            # The thermostat reported itself to be off, but the
+            # expected temperature is outside the thermostat's
+            # supported temperature range anyway. Hence the report
+            # means no change and can safely be ignored.
+            return
+        if self.get_open_windows(room_name):
+            # After window has been opened and heating turned off,
+            # thermostats usually report to be off, but we don't
+            # care to not mess up room["wanted_temp"] and prevent
+            # replication.
+            return
+
         if len(room["thermostats"]) > 1 and \
            room["replicate_changes"] and self.master_switch_enabled():
             self.log("<-- [{}] Propagating the change to all thermostats "
                      "in the room.".format(room["friendly_name"]))
             self.set_temp(room_name, temp, scheduled=False)
-        else:
-            # just update the records
-            self.current_temps[room_name] = temp
 
         if not kwargs.get("no_reschedule"):
             # only re-schedule when in schedule mode and not
@@ -367,16 +365,21 @@ class Heaty(appapi.AppDaemon):
         elif not self.get_open_windows(room_name):
             # all windows closed
             # restore temperature from before opening the window
-            orig_temp = self.current_temps[room_name]
+            orig_temp = room["wanted_temp"]
             # could be None if we don't knew the temperature before
             # opening the window
-            if orig_temp is not None:
+            if orig_temp is None:
+                self.set_scheduled_temp(room_name)
+            else:
                 self.set_temp(room_name, orig_temp, scheduled=False)
 
-    def set_temp(self, room_name, target_temp, scheduled=False):
+    def set_temp(self, room_name, target_temp, scheduled=False,
+                 force_resend=False):
         """Sets the given target temperature for all thermostats in the
            given room. If scheduled is True, disabled master switch
-           prevents setting the temperature."""
+           prevents setting the temperature.
+           Temperatures won't be send to thermostats redundantly unless
+           force_resend is True."""
 
         room = self.cfg["rooms"][room_name]
 
@@ -384,13 +387,24 @@ class Heaty(appapi.AppDaemon):
            not self.master_switch_enabled():
             return
 
+        synced = all(map(lambda therm: target_temp == therm["current_temp"],
+                         room["thermostats"].values()))
+        if synced and not force_resend:
+            return
+
         self.log("<-- [{}] Temperature set to {}.  <{}>"
                  .format(room["friendly_name"], target_temp,
                          "scheduled" if scheduled else "manual"))
-
-        self.current_temps[room_name] = target_temp
+        room["wanted_temp"] = target_temp
 
         for therm_name, therm in room["thermostats"].items():
+            if target_temp == therm["current_temp"] and not force_resend:
+                if self.cfg["debug"]:
+                    self.log("--- [{}] Not sending temperature to {} "
+                             "redundantly."
+                             .format(room["friendly_name"], therm_name))
+                continue
+
             if target_temp.is_off():
                 value = None
                 opmode = therm["opmode_off"]
@@ -469,11 +483,11 @@ class Heaty(appapi.AppDaemon):
            change, it is sent to the thermostats anyway.
            In case of an open window, temperature is cached and not sent."""
 
-        if not self.master_switch_enabled() or \
-           room_name in self.reschedule_timers:
-            return
-
         room = self.cfg["rooms"][room_name]
+
+        if not self.master_switch_enabled() or \
+           room.get("reschedule_timer"):
+            return
 
         temp = self.get_scheduled_temp(room_name)
         if temp is None:
@@ -482,17 +496,13 @@ class Heaty(appapi.AppDaemon):
                          .format(room["friendly_name"]))
             return
 
-        if temp != self.current_temps[room_name] or force_resend:
-            if self.get_open_windows(room_name):
-                self.log("--- [{}] Caching and not setting temperature due "
-                         "to an open window.".format(room["friendly_name"]))
-                self.current_temps[room_name] = temp
-            else:
-                self.set_temp(room_name, temp, scheduled=True)
-        elif self.cfg["debug"]:
-            self.log("--- [{}] Not setting temperature to {} "
-                     "redundantly."
-                     .format(room["friendly_name"], temp))
+        if self.get_open_windows(room_name):
+            self.log("--- [{}] Caching and not setting temperature due "
+                     "to an open window.".format(room["friendly_name"]))
+            room["wanted_temp"] = temp
+        else:
+            self.set_temp(room_name, temp, scheduled=True,
+                          force_resend=force_resend)
 
     def set_manual_temp(self, room_name, temp_expr, force_resend=False,
                         reschedule_delay=None):
@@ -523,17 +533,13 @@ class Heaty(appapi.AppDaemon):
 
         temp = result.temp
 
-        if temp != self.current_temps[room_name] or force_resend:
-            if self.get_open_windows(room_name):
-                self.log("--- [{}] Caching and not setting temperature due "
-                         "to an open window.".format(room["friendly_name"]))
-                self.current_temps[room_name] = temp
-            else:
-                self.set_temp(room_name, temp, scheduled=False)
-        elif self.cfg["debug"]:
-            self.log("--- [{}] Not setting temperature to {} "
-                     "redundantly."
-                     .format(room["friendly_name"], temp))
+        if self.get_open_windows(room_name):
+            self.log("--- [{}] Caching and not setting temperature due "
+                     "to an open window.".format(room["friendly_name"]))
+            room["wanted_temp"] = temp
+        else:
+            self.set_temp(room_name, temp, scheduled=False,
+                          force_resend=force_resend)
 
         self.update_reschedule_timer(room_name,
                                      reschedule_delay=reschedule_delay)
@@ -566,7 +572,7 @@ class Heaty(appapi.AppDaemon):
     def update_reschedule_timer(self, room_name, reschedule_delay=None,
                                 force=False):
         """This method cancels an existing re-schedule timer first.
-           Then, it checks if either force is set or the current
+           Then, it checks if either force is set or the wanted
            temperature in the given room differs from the scheduled
            temperature. If so, a new timer is created according to
            the room's settings. reschedule_delay, if given, overwrites
@@ -584,7 +590,7 @@ class Heaty(appapi.AppDaemon):
         if reschedule_delay is None:
             reschedule_delay = room["reschedule_delay"]
 
-        temp = self.current_temps.get(room_name)
+        temp = room["wanted_temp"]
         if not reschedule_delay or \
            (not force and temp == self.get_scheduled_temp(room_name)):
             return
@@ -596,20 +602,21 @@ class Heaty(appapi.AppDaemon):
                          util.format_time(when.time()), delta))
         timer = self.run_at(self.reschedule_timer_cb, when,
                             room_name=room_name)
-        self.reschedule_timers[room_name] = timer
+        room["reschedule_timer"] = timer
 
     def cancel_reschedule_timer(self, room_name):
         """Cancels the reschedule timer for the given room, if one
            exists. True is returned if a timer has been cancelled,
            False otherwise."""
 
+        room = self.cfg["rooms"][room_name]
+
         try:
-            timer = self.reschedule_timers.pop(room_name)
+            timer = room.pop("reschedule_timer")
         except KeyError:
             return False
 
         if self.cfg["debug"]:
-            room = self.cfg["rooms"][room_name]
             self.log("--- [{}] Cancelling re-schedule timer."
                      .format(room["friendly_name"]))
         self.cancel_timer(timer)
@@ -618,20 +625,20 @@ class Heaty(appapi.AppDaemon):
     def check_for_open_window(self, room_name):
         """Checks whether a window is open in the given room and,
            if so, turns the heating off there. The value stored in
-           self.current_temps[room_name] is restored after the heating
+           room["wanted_temp"] is restored after the heating
            has been turned off. It returns True if a window is open,
            False otherwise."""
 
         room = self.cfg["rooms"][room_name]
         if self.get_open_windows(room_name):
             # window is open, turn heating off
-            orig_temp = self.current_temps[room_name]
+            orig_temp = room["wanted_temp"]
             off_temp = self.cfg["off_temp"]
-            if self.current_temps[room_name] != off_temp:
+            if orig_temp != off_temp:
                 self.log("<-- [{}] Turning heating off due to an open "
                          "window.".format(room["friendly_name"]))
                 self.set_temp(room_name, off_temp, scheduled=False)
-            self.current_temps[room_name] = orig_temp
+                room["wanted_temp"] = orig_temp
             return True
         return False
 
