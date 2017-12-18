@@ -113,7 +113,7 @@ heaty_full:
     # reports it back in its state (avoid this).
     # (optional, default: 4)
     #set_temp_retries: 4
-    # How long to wait between retryings.
+    # How many seconds to wait between retryings.
     # (optional, default: 10)
     #set_temp_retry_interval: 10
 
