@@ -2,3 +2,4 @@
 disable =
     too-few-public-methods
 max-args = 6
+max-branches = 20

@@ -61,10 +61,7 @@ class Heaty(appapi.AppDaemon):
 
         self.log("--- Getting current temperatures from thermostats.")
         for room_name, room in self.cfg["rooms"].items():
-            for therm_name, therm in room["thermostats"].items():
-                if therm["ignore_updates"]:
-                    # don't consider this thermostat for state updates
-                    continue
+            for therm_name in room["thermostats"]:
                 # fetch initial state from thermostats
                 state = self.get_state(therm_name, attribute="all")
                 if not state:
@@ -114,13 +111,12 @@ class Heaty(appapi.AppDaemon):
         if self.cfg["debug"]:
             self.log("--- Registering thermostat state listeners.")
         for room_name, room in self.cfg["rooms"].items():
-            for therm_name, therm in room["thermostats"].items():
-                if not therm["ignore_updates"]:
-                    if self.cfg["debug"]:
-                        self.log("--- [{}] Registering state listener for {}."
-                                 .format(room["friendly_name"], therm_name))
-                    self.listen_state(self.thermostat_state_cb, therm_name,
-                                      attribute="all", room_name=room_name)
+            for therm_name in room["thermostats"]:
+                if self.cfg["debug"]:
+                    self.log("--- [{}] Registering state listener for {}."
+                             .format(room["friendly_name"], therm_name))
+                self.listen_state(self.thermostat_state_cb, therm_name,
+                                  attribute="all", room_name=room_name)
 
         if self.cfg["debug"]:
             self.log("--- Registering window sensor state listeners.")
@@ -296,6 +292,19 @@ class Heaty(appapi.AppDaemon):
                  .format(room["friendly_name"], repr(temp)))
         therm["current_temp"] = temp
 
+        if temp == room["wanted_temp"]:
+            # thermostat adapted to the temperature we set,
+            # cancel any re-send timer
+            try:
+                timer = therm.pop("resend_timer")
+            except KeyError:
+                pass
+            else:
+                if self.cfg["debug"]:
+                    self.log("--- [{}] Cancelling retry timer for {}."
+                             .format(room["friendly_name"], entity))
+                self.cancel_timer(timer)
+
         if temp.is_off() and \
            isinstance(room["wanted_temp"], expr.Temp) and \
            isinstance(therm["min_temp"], expr.Temp) and \
@@ -319,10 +328,13 @@ class Heaty(appapi.AppDaemon):
             self.log("<-- [{}] Propagating the change to all thermostats "
                      "in the room.".format(room["friendly_name"]))
             self.set_temp(room_name, temp, scheduled=False)
+        else:
+            # just update the records
+            room["wanted_temp"] = temp
 
-        if not kwargs.get("no_reschedule"):
-            # only re-schedule when in schedule mode and not
-            # explicitly disabled
+        # only re-schedule when no re-send timer is running and
+        # re-scheduling is not disabled explicitly
+        if not therm.get("resend_timer") and not kwargs.get("no_reschedule"):
             self.update_reschedule_timer(room_name)
 
     def master_switch_cb(self, entity, attr, old, new, kwargs):
@@ -406,32 +418,79 @@ class Heaty(appapi.AppDaemon):
                 continue
 
             if target_temp.is_off():
-                value = None
+                temp = None
                 opmode = therm["opmode_off"]
             else:
-                value = target_temp + therm["delta"]
+                temp = target_temp + therm["delta"]
                 if isinstance(therm["min_temp"], expr.Temp) and \
-                   value < therm["min_temp"]:
-                    value = None
+                   temp < therm["min_temp"]:
+                    temp = None
                     opmode = therm["opmode_off"]
                 else:
                     opmode = therm["opmode_heat"]
 
-            if self.cfg["debug"]:
-                self.log("<-- [{}] Setting {}: {}={}, {}={}".format(
-                    room["friendly_name"], therm_name,
-                    therm["temp_service_attr"],
-                    value if value is not None else "<unset>",
-                    therm["opmode_service_attr"],
-                    opmode))
+            left_retries = therm["set_temp_retries"]
+            try:
+                timer = therm.pop("resend_timer")
+            except KeyError:
+                pass
+            else:
+                self.cancel_timer(timer)
+            timer = self.run_in(self.set_temp_resend_cb, 1,
+                                room_name=room_name, therm_name=therm_name,
+                                left_retries=left_retries,
+                                opmode=opmode, temp=temp)
+            therm["resend_timer"] = timer
 
+    def set_temp_resend_cb(self, kwargs):
+        """This callback sends the operation_mode and temperature to the
+           thermostat. Expected values for kwargs are:
+           - room_name and therm_name,
+           - opmode and temp (incl. delta)
+           - left_retries (after this round)"""
+
+        room_name = kwargs["room_name"]
+        therm_name = kwargs["therm_name"]
+        opmode = kwargs["opmode"]
+        temp = kwargs["temp"]
+        left_retries = kwargs["left_retries"]
+        room = self.cfg["rooms"][room_name]
+        therm = room["thermostats"][therm_name]
+
+        try:
+            therm.pop("resend_timer")
+        except KeyError:
+            pass
+
+        if self.cfg["debug"]:
+            self.log("<-- [{}] Setting {}: {}={}, {}={}, left retries={}"
+                     .format(room["friendly_name"], therm_name,
+                             therm["temp_service_attr"],
+                             temp if temp is not None else "<unset>",
+                             therm["opmode_service_attr"],
+                             opmode,
+                             left_retries))
+
+        attrs = {"entity_id": therm_name,
+                 therm["opmode_service_attr"]: opmode}
+        self.call_service(therm["opmode_service"], **attrs)
+        if temp is not None:
             attrs = {"entity_id": therm_name,
-                     therm["opmode_service_attr"]: opmode}
-            self.call_service(therm["opmode_service"], **attrs)
-            if value is not None:
-                attrs = {"entity_id": therm_name,
-                         therm["temp_service_attr"]: value.value}
-                self.call_service(therm["temp_service"], **attrs)
+                     therm["temp_service_attr"]: temp.value}
+            self.call_service(therm["temp_service"], **attrs)
+
+        if not left_retries:
+            return
+
+        interval = therm["set_temp_retry_interval"]
+        if self.cfg["debug"]:
+            self.log("--- [{}] Re-sending to {} in {} seconds."
+                     .format(room["friendly_name"], therm_name, interval))
+        timer = self.run_in(self.set_temp_resend_cb, interval,
+                            room_name=room_name, therm_name=therm_name,
+                            left_retries=left_retries - 1,
+                            opmode=opmode, temp=temp)
+        therm["resend_timer"] = timer
 
     def get_scheduled_temp(self, room_name):
         """Computes and returns the temperature that is configured for
@@ -584,8 +643,6 @@ class Heaty(appapi.AppDaemon):
             return
 
         room = self.cfg["rooms"][room_name]
-
-        self.cancel_reschedule_timer(room_name)
 
         if reschedule_delay is None:
             reschedule_delay = room["reschedule_delay"]

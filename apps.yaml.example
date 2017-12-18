@@ -103,12 +103,19 @@ heaty_full:
     # (optional, default: null, which means there is no limitation)
     #min_temp: null
 
-    # Whether you'd not like to query initial temperature values from
-    # the thermostat. It is recommended to leave this option disabled
-    # in order for Heaty to notice manual temperature changes made at
-    # the thermostat.
-    # (optional, default: false)
-    #ignore_updates: false
+    # This setting tells Heaty how often it should retry sending
+    # a temperature to the thermostat. If the thermostat reports
+    # the set temperature back, no further retry is made.
+    # You may find this useful if the connection between Home
+    # Assistant and your thermostat is unreliable.
+    # Set to 0 in order to disable retrying. -1 removes the limit
+    # and causes the temperature to be re-sent until the thermostat
+    # reports it back in its state (avoid this).
+    # (optional, default: 4)
+    #set_temp_retries: 4
+    # How long to wait between retryings.
+    # (optional, default: 10)
+    #set_temp_retry_interval: 10
 
     # These two settings can be used to tweak the names of the
     # operation modes.
@@ -124,8 +131,9 @@ heaty_full:
     # (optional, default: operation_mode)
     #opmode_service_attr: operation_mode
     # Entity attribute that holds the current operation mode.
-    # This is used to detect manual temperature adjustments and provide
-    # correct temperature values on startup.
+    # This is used to detect manual temperature adjustments, provide
+    # correct temperature values on startup and notice that a
+    # thermostat picked up temperature changes.
     # (optional, default: operation_mode)
     #opmode_state_attr: operation_mode
 
@@ -136,8 +144,9 @@ heaty_full:
     # (optional, default: temperature)
     #temp_service_attr: temperature
     # Entity attribute that holds the current target temperature.
-    # This is used to detect manual temperature adjustments and provide
-    # correct temperature values on startup.
+    # This is used to detect manual temperature adjustments, provide
+    # correct temperature values on startup and notice that a
+    # thermostat picked up temperature changes.
     # (optional, default: temperature)
     #temp_state_attr: temperature
 
