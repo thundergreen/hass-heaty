@@ -35,7 +35,7 @@ class Result(ResultBase, AddibleMixin):
 
 class Add(ResultBase, AddibleMixin):
     """Result of a temperature expression that is intended to be added
-       to the result of a consequent expression."""
+    to the result of a consequent expression."""
 
     def __add__(self, other):
         if not isinstance(other, AddibleMixin):
@@ -49,7 +49,7 @@ class Add(ResultBase, AddibleMixin):
 
 class Break(ResultBase):
     """Result of a temperature expression that should abort scheduling and
-       leave the temperature unchanged."""
+    leave the temperature unchanged."""
 
     def __init__(self):
         # pylint: disable=super-init-not-called
@@ -137,8 +137,8 @@ class Temp:
     @staticmethod
     def parse_temp(value):
         """Converts the given value to a valid temperature of type float or OFF.
-           If value is a string, all whitespace is removed first.
-           If conversion is not possible, None is returned."""
+        If value is a string, all whitespace is removed first.
+        If conversion is not possible, None is returned."""
 
         if isinstance(value, str):
             value = "".join(value.split())
@@ -153,8 +153,9 @@ class Temp:
 
 def build_time_expression_env():
     """This function builds and returns an environment usable as globals
-       for the evaluation of a time expression. It will add all members
-       of this module's __all__ to the environment."""
+    for the evaluation of a time expression. It will add all members
+    of this module's __all__ to the environment."""
+
     env = {"datetime": datetime}
     for name in __all__:
         env[name] = globals()[name]
@@ -162,9 +163,9 @@ def build_time_expression_env():
 
 def eval_temp_expr(temp_expr, extra_env=None):
     """This method evaluates the given temperature expression.
-       The evaluation result is returned. The items of the extra_env
-       dict are added to the globals available during evaluation.
-       The result is an instance of Result."""
+    The evaluation result is returned. The items of the extra_env
+    dict are added to the globals available during evaluation.
+    The result is an instance of Result."""
 
     # pylint: disable=eval-used
 

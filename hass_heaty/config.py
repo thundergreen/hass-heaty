@@ -22,7 +22,7 @@ RANGE_STRING_CONSTRAINTS = ("years", "months", "days", "weeks", "weekdays")
 
 def extend_with_default(validator_class):
     """This extends the given validator class with two special validator
-       functions in order to provide automatic setting of default values."""
+    functions in order to provide automatic setting of default values."""
 
     validate_properties = validator_class.VALIDATORS["properties"]
 
@@ -49,7 +49,8 @@ def extend_with_default(validator_class):
 
         def patch_resolved(resolved):
             """Returns a copy of the given dict with all keys/values
-               from schema copied over."""
+            from schema deep-copied over."""
+
             patched = copy.deepcopy(resolved)
             for key, val in schema.items():
                 if key != "$ref":
@@ -87,17 +88,19 @@ DefaultValidatingDraft4Validator = extend_with_default(Draft4Validator)
 
 def validate_config(cfg, schema_file=SCHEMA_FILE):
     """Validates the given configuration, filling defaults in if required."""
+
     schema = json.load(open(schema_file))
     DefaultValidatingDraft4Validator(schema).validate(cfg)
 
 def patch_if_none(obj, key, value):
     """If obj.get(key) is None, this runs obj[key] = value."""
+
     if obj.get(key) is None:
         obj[key] = value
 
 def parse_config(cfg):
     """Creates a copy of the given config dict, validates it and populates
-       it with default values where appropriate."""
+    it with default values where appropriate."""
 
     # pylint: disable=too-many-branches,too-many-locals
 
@@ -162,7 +165,7 @@ def parse_config(cfg):
 
 def parse_schedule(rules):
     """Builds and returns a Schedule object from the given schedule
-       config block."""
+    config block."""
 
     sched = schedule.Schedule()
     for rule in rules:

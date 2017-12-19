@@ -39,6 +39,7 @@ class Rule:
 
     def check_constraints(self, date):
         """Checks all constraints of this rule against the given date."""
+
         year, week, weekday = date.isocalendar()
         for constraint, allowed_values in self.constraints.items():
             if allowed_values is None:
@@ -65,7 +66,8 @@ class Schedule:
 
     def unfold(self):
         """Returns an iterator over all rules of this schedule. Included
-           sub-schedules are replaced by the rules they contain."""
+        sub-schedules are replaced by the rules they contain."""
+
         for item in self.items:
             if isinstance(item, Rule):
                 yield item
@@ -75,8 +77,9 @@ class Schedule:
 
     def get_matching_rules(self, when):
         """Returns an iterator over all rules of the schedule that are
-           valid for the given datetime object, keeping the order from
-           the items list. Rules of sub-schedules are included."""
+        valid at the time represented by the given datetime object,
+        keeping the order from the items list. Rules of sub-schedules
+        are included."""
 
         _time = when.time()
         for rule in self.unfold():

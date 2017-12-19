@@ -27,8 +27,8 @@ class Heaty(appapi.AppDaemon):
 
     def initialize(self):
         """Parses the configuration, initializes all timers, state and
-           event callbacks and sets temperatures in all rooms according
-           to the configured schedules."""
+        event callbacks and sets temperatures in all rooms according
+        to the configured schedules."""
 
         # pylint: disable=too-many-branches,too-many-locals,too-many-statements
 
@@ -161,17 +161,11 @@ class Heaty(appapi.AppDaemon):
             self.log("--- [{}] Schedule timer fired."
                      .format(room["friendly_name"]))
 
-        if room.get("reschedule_timer"):
-            # don't schedule now, wait for the timer instead
-            self.log("--- [{}] Not scheduling now due to a running "
-                     "re-schedule timer."
-                     .format(room["friendly_name"]))
-            return
-
         self.set_scheduled_temp(room_name)
 
     def reschedule_timer_cb(self, kwargs):
         """Is called whenever a re-schedule timer fires."""
+
         room_name = kwargs["room_name"]
         room = self.cfg["rooms"][room_name]
         self.log("--- [{}] Re-schedule timer fired."
@@ -184,8 +178,13 @@ class Heaty(appapi.AppDaemon):
 
     def reschedule_event_cb(self, event, data, kwargs):
         """This callback executes when a heaty_reschedule event is received.
-           data may contain a "room_name", which limits the re-scheduling
-           to the given room."""
+        data may contain a "room_name", which limits the re-scheduling
+        to the given room."""
+
+        if not self.master_switch_enabled():
+            self.log("--- Ignoring re-schedule event because master "
+                     "switch is off.")
+            return
 
         room_name = data.get("room_name")
         if room_name:
@@ -199,12 +198,6 @@ class Heaty(appapi.AppDaemon):
 
         for room_name in room_names:
             room = self.cfg["rooms"][room_name]
-
-            if not self.master_switch_enabled():
-                self.log("--- [{}] Ignoring re-schedule event because "
-                         "master switch is off.")
-                continue
-
             self.log("--- [{}] Re-schedule event received."
                      .format(room["friendly_name"]))
             # delay for 6 seconds to avoid re-scheduling multiple
@@ -214,11 +207,11 @@ class Heaty(appapi.AppDaemon):
 
     def set_temp_event_cb(self, event, data, kwargs):
         """This callback executes when a heaty_set_temp event is received.
-           data must contain a "room_name" and a "temp", which may also
-           be a temperature expression. "force_resend" is optional and
-           False by default. If it is set to True, the temperature is
-           re-sent to the thermostats even if it hasn't changed due to
-           Heaty's records."""
+        data must contain a "room_name" and a "temp", which may also
+        be a temperature expression. "force_resend" is optional and
+        False by default. If it is set to True, the temperature is
+        re-sent to the thermostats even if it hasn't changed due to
+        Heaty's records."""
 
         try:
             room_name = data["room_name"]
@@ -256,9 +249,9 @@ class Heaty(appapi.AppDaemon):
 
     def thermostat_state_cb(self, entity, attr, old, new, kwargs):
         """Is called when a thermostat's state changes.
-           This method fetches the set target temperature from the
-           thermostat and sends updates to all other thermostats in
-           the room."""
+        This method fetches the set target temperature from the
+        thermostat and sends updates to all other thermostats in
+        the room."""
 
         room_name = kwargs["room_name"]
         room = self.cfg["rooms"][room_name]
@@ -334,9 +327,9 @@ class Heaty(appapi.AppDaemon):
 
     def master_switch_cb(self, entity, attr, old, new, kwargs):
         """Is called when the master switch is toggled.
-           If turned on, it sets the scheduled temperatures in all rooms.
-           If switch is turned off, all re-schedule timers are cancelled
-           and temperature is set to self.cfg["off_temp"] everywhere."""
+        If turned on, it sets the scheduled temperatures in all rooms.
+        If switch is turned off, all re-schedule timers are cancelled
+        and temperature is set to self.cfg["off_temp"] everywhere."""
 
         self.log("--> Master switch turned {}.".format(new))
         for room_name in self.cfg["rooms"]:
@@ -349,8 +342,8 @@ class Heaty(appapi.AppDaemon):
 
     def window_sensor_cb(self, entity, attr, old, new, kwargs):
         """Is called when a window sensor's state has changed.
-           This method handles the window open/closed detection and
-           performs actions accordingly."""
+        This method handles the window open/closed detection and
+        performs actions accordingly."""
 
         room_name = kwargs["room_name"]
         room = self.cfg["rooms"][room_name]
@@ -383,10 +376,10 @@ class Heaty(appapi.AppDaemon):
     def set_temp(self, room_name, target_temp, scheduled=False,
                  force_resend=False):
         """Sets the given target temperature for all thermostats in the
-           given room. If scheduled is True, disabled master switch
-           prevents setting the temperature.
-           Temperatures won't be send to thermostats redundantly unless
-           force_resend is True."""
+        given room. If scheduled is True, disabled master switch
+        prevents setting the temperature.
+        Temperatures won't be send to thermostats redundantly unless
+        force_resend is True."""
 
         room = self.cfg["rooms"][room_name]
 
@@ -434,10 +427,10 @@ class Heaty(appapi.AppDaemon):
 
     def set_temp_resend_cb(self, kwargs):
         """This callback sends the operation_mode and temperature to the
-           thermostat. Expected values for kwargs are:
-           - room_name and therm_name,
-           - opmode and temp (incl. delta)
-           - left_retries (after this round)"""
+        thermostat. Expected values for kwargs are:
+        - room_name and therm_name,
+        - opmode and temp (incl. delta)
+        - left_retries (after this round)"""
 
         room_name = kwargs["room_name"]
         therm_name = kwargs["therm_name"]
@@ -481,10 +474,10 @@ class Heaty(appapi.AppDaemon):
 
     def get_scheduled_temp(self, room_name):
         """Computes and returns the temperature that is configured for
-           the current date and time in the given room. The second return
-           value is the rule which generated the result.
-           If no temperature could be found in the schedule (e.g. all
-           rules evaluate to Ignore()), None is returned."""
+        the current date and time in the given room. The second return
+        value is the rule which generated the result.
+        If no temperature could be found in the schedule (e.g. all
+        rules evaluate to Ignore()), None is returned."""
 
         room = self.cfg["rooms"][room_name]
 
@@ -524,16 +517,26 @@ class Heaty(appapi.AppDaemon):
 
     def set_scheduled_temp(self, room_name, force_resend=False):
         """Sets the temperature that is configured for the current
-           date and time in the given room. If the master switch is
-           turned off, this won't do anything.
-           If force_resend is True, and the temperature didn't
-           change, it is sent to the thermostats anyway.
-           In case of an open window, temperature is cached and not sent."""
+        date and time in the given room. If the master switch is
+        turned off, this won't do anything.
+        This method won't re-schedule if a re-schedule timer runs.
+        It will also detect when neither the rule nor the result
+        of its temperature expression changed compared to the last run
+        and prevent re-setting the temperature in that case.
+        If force_resend is True, and the temperature didn't
+        change, it is sent to the thermostats anyway.
+        In case of an open window, temperature is cached and not sent."""
 
         room = self.cfg["rooms"][room_name]
 
-        if not self.master_switch_enabled() or \
-           room.get("reschedule_timer"):
+        if not self.master_switch_enabled():
+            return
+
+        if room.get("reschedule_timer"):
+            # don't schedule now, wait for the timer instead
+            self.log("--- [{}] Not scheduling now due to a running "
+                     "re-schedule timer."
+                     .format(room["friendly_name"]))
             return
 
         result = self.get_scheduled_temp(room_name)
@@ -544,16 +547,16 @@ class Heaty(appapi.AppDaemon):
             return
 
         temp, rule = result
-        if temp == room.get("latest_schedule_temp") and \
-           rule is room.get("latest_schedule_rule") and \
+        if temp == room.get("current_schedule_temp") and \
+           rule is room.get("current_schedule_rule") and \
            not force_resend:
             # temp and rule didn't change, what means that the
             # re-scheduling wasn't necessary and was e.g. caused
             # by a daily timer which doesn't count for today
             return
 
-        room["latest_schedule_temp"] = temp
-        room["latest_schedule_rule"] = rule
+        room["current_schedule_temp"] = temp
+        room["current_schedule_rule"] = rule
 
         if self.get_open_windows(room_name):
             self.log("--- [{}] Caching and not setting temperature due "
@@ -566,13 +569,13 @@ class Heaty(appapi.AppDaemon):
     def set_manual_temp(self, room_name, temp_expr, force_resend=False,
                         reschedule_delay=None):
         """Sets the temperature in the given room. If the master switch
-           is turned off, this won't do anything.
-           If force_resend is True, and the temperature didn't
-           change, it is sent to the thermostats anyway.
-           An existing re-schedule timer is cancelled and a new one is
-           started if re-schedule timers are configured. reschedule_delay,
-           if given, overwrites the value configured for the room.
-           In case of an open window, temperature is cached and not sent."""
+        is turned off, this won't do anything.
+        If force_resend is True, and the temperature didn't
+        change, it is sent to the thermostats anyway.
+        An existing re-schedule timer is cancelled and a new one is
+        started if re-schedule timers are configured. reschedule_delay,
+        if given, overwrites the value configured for the room.
+        In case of an open window, temperature is cached and not sent."""
 
         if not self.master_switch_enabled():
             return
@@ -605,11 +608,11 @@ class Heaty(appapi.AppDaemon):
 
     def eval_temp_expr(self, temp_expr, room_name):
         """This is a wrapper around expr.eval_temp_expr that adds the
-           app object, the room name  and some helpers to the evaluation
-           environment, as well as all configured
-           temp_expression_modules. It also catches and logs any
-           exception which is raised during evaluation. In this case,
-           None is returned."""
+        app object, the room name  and some helpers to the evaluation
+        environment, as well as all configured
+        temp_expression_modules. It also catches and logs any
+        exception which is raised during evaluation. In this case,
+        None is returned."""
 
         # use date/time provided by appdaemon to support time-traveling
         now = self.datetime()
@@ -631,11 +634,11 @@ class Heaty(appapi.AppDaemon):
     def update_reschedule_timer(self, room_name, reschedule_delay=None,
                                 force=False):
         """This method cancels an existing re-schedule timer first.
-           Then, it checks if either force is set or the wanted
-           temperature in the given room differs from the scheduled
-           temperature. If so, a new timer is created according to
-           the room's settings. reschedule_delay, if given, overwrites
-           the value configured for the room."""
+        Then, it checks if either force is set or the wanted
+        temperature in the given room differs from the scheduled
+        temperature. If so, a new timer is created according to
+        the room's settings. reschedule_delay, if given, overwrites
+        the value configured for the room."""
 
         self.cancel_reschedule_timer(room_name)
 
@@ -647,9 +650,10 @@ class Heaty(appapi.AppDaemon):
         if reschedule_delay is None:
             reschedule_delay = room["reschedule_delay"]
 
-        temp = room["wanted_temp"]
+        wanted = room["wanted_temp"]
+        result = self.get_scheduled_temp(room_name)
         if not reschedule_delay or \
-           (not force and temp == self.get_scheduled_temp(room_name)):
+           (not force and result and wanted == result[0]):
             return
 
         delta = datetime.timedelta(minutes=reschedule_delay)
@@ -663,8 +667,8 @@ class Heaty(appapi.AppDaemon):
 
     def cancel_reschedule_timer(self, room_name):
         """Cancels the reschedule timer for the given room, if one
-           exists. True is returned if a timer has been cancelled,
-           False otherwise."""
+        exists. True is returned if a timer has been cancelled,
+        False otherwise."""
 
         room = self.cfg["rooms"][room_name]
 
@@ -681,7 +685,7 @@ class Heaty(appapi.AppDaemon):
 
     def cancel_set_temp_timer(self, room_name, therm_name):
         """Cancel the set temp timer for given room and thermostat name,
-           if one exists."""
+        if one exists."""
         room = self.cfg["rooms"][room_name]
         therm = room["thermostats"][therm_name]
         try:
@@ -696,10 +700,10 @@ class Heaty(appapi.AppDaemon):
 
     def check_for_open_window(self, room_name):
         """Checks whether a window is open in the given room and,
-           if so, turns the heating off there. The value stored in
-           room["wanted_temp"] is restored after the heating
-           has been turned off. It returns True if a window is open,
-           False otherwise."""
+        if so, turns the heating off there. The value stored in
+        room["wanted_temp"] is restored after the heating
+        has been turned off. It returns True if a window is open,
+        False otherwise."""
 
         room = self.cfg["rooms"][room_name]
         if self.get_open_windows(room_name):
@@ -716,7 +720,7 @@ class Heaty(appapi.AppDaemon):
 
     def master_switch_enabled(self):
         """Returns the state of the master switch or True if no master
-           switch is configured."""
+        switch is configured."""
         master_switch = self.cfg["master_switch"]
         if master_switch:
             return self.get_state(master_switch) == "on"
@@ -724,7 +728,7 @@ class Heaty(appapi.AppDaemon):
 
     def get_open_windows(self, room_name):
         """Returns a list of windo sensors in the given room which
-           currently report to be open,"""
+        currently report to be open,"""
         open_sensors = []
         sensors = self.cfg["rooms"][room_name]["window_sensors"]
         for sensor_name, sensor in sensors.items():
