@@ -46,13 +46,13 @@ class Rule:
                 continue
             if constraint == "years" and year not in allowed_values:
                 return False
-            if constraint == "months" and date.year not in allowed_values:
+            if constraint == "months" and date.month not in allowed_values:
                 return False
             if constraint == "days" and date.day not in allowed_values:
                 return False
-            if constraint == "week" and week not in allowed_values:
+            if constraint == "weeks" and week not in allowed_values:
                 return False
-            if constraint == "weekday" and weekday not in allowed_values:
+            if constraint == "weekdays" and weekday not in allowed_values:
                 return False
         return True
 
