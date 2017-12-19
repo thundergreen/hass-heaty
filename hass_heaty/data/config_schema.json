@@ -57,7 +57,7 @@
 					"default": null
 				},
 				"set_temp_retries": { "type": "integer", "min": -1, "default": 4 },
-				"set_temp_retry_interval": { "type": "integer", "min": 0, "default": 10 },
+				"set_temp_retry_interval": { "type": "integer", "min": 1, "default": 10 },
 				"opmode_heat": { "type": "string", "default": "Heat" },
 				"opmode_off": { "type": "string", "default": "Off" },
 				"opmode_service": { "type": "string", "default": "climate/set_operation_mode" },
