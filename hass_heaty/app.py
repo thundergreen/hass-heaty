@@ -89,6 +89,8 @@ class Heaty(appapi.AppDaemon):
         if self.cfg["debug"]:
             self.log("--- Creating schedule timers.")
         for room_name, room in self.cfg["rooms"].items():
+            # we collect the times in a set first to avoid registering
+            # multiple timers for the same time
             times = set()
             for rule in room["schedule"].unfold():
                 for _time in (rule.start_time, rule.end_time):
@@ -99,14 +101,15 @@ class Heaty(appapi.AppDaemon):
                     )
                     _time += datetime.timedelta(seconds=1)
                     _time = _time.time()
-                    # we collect the times in a set first to avoid registering
-                    # multiple timers for the same time
                     times.add(_time)
+
+            # now register a timer for each time a rule starts or ends
             for _time in times:
                 if self.cfg["debug"]:
                     self.log("--- [{}] Registering timer at {}."
                              .format(room["friendly_name"], _time))
-                self.run_daily(self.schedule_cb, _time, room_name=room_name)
+                self.run_daily(self.schedule_timer_cb, _time,
+                               room_name=room_name)
 
         if self.cfg["debug"]:
             self.log("--- Registering thermostat state listeners.")
@@ -148,7 +151,7 @@ class Heaty(appapi.AppDaemon):
 
         self.log("--- Initialization done.")
 
-    def schedule_cb(self, kwargs):
+    def schedule_timer_cb(self, kwargs):
         """Is called whenever a schedule timer fires."""
 
         room_name = kwargs["room_name"]
@@ -295,15 +298,7 @@ class Heaty(appapi.AppDaemon):
         if temp == room["wanted_temp"]:
             # thermostat adapted to the temperature we set,
             # cancel any re-send timer
-            try:
-                timer = therm.pop("resend_timer")
-            except KeyError:
-                pass
-            else:
-                if self.cfg["debug"]:
-                    self.log("--- [{}] Cancelling retry timer for {}."
-                             .format(room["friendly_name"], entity))
-                self.cancel_timer(timer)
+            self.cancel_set_temp_timer(room_name, entity)
 
         if temp.is_off() and \
            isinstance(room["wanted_temp"], expr.Temp) and \
@@ -430,12 +425,7 @@ class Heaty(appapi.AppDaemon):
                     opmode = therm["opmode_heat"]
 
             left_retries = therm["set_temp_retries"]
-            try:
-                timer = therm.pop("resend_timer")
-            except KeyError:
-                pass
-            else:
-                self.cancel_timer(timer)
+            self.cancel_set_temp_timer(room_name, therm_name)
             timer = self.run_in(self.set_temp_resend_cb, 1,
                                 room_name=room_name, therm_name=therm_name,
                                 left_retries=left_retries,
@@ -457,10 +447,7 @@ class Heaty(appapi.AppDaemon):
         room = self.cfg["rooms"][room_name]
         therm = room["thermostats"][therm_name]
 
-        try:
-            therm.pop("resend_timer")
-        except KeyError:
-            pass
+        self.cancel_set_temp_timer(room_name, therm_name)
 
         if self.cfg["debug"]:
             self.log("<-- [{}] Setting {}: {}={}, {}={}, left retries={}"
@@ -494,9 +481,10 @@ class Heaty(appapi.AppDaemon):
 
     def get_scheduled_temp(self, room_name):
         """Computes and returns the temperature that is configured for
-           the current time in the given room. If no temperature could
-           be found in the schedule (e.g. all rules evaluate to Ignore()),
-           None is returned."""
+           the current date and time in the given room. The second return
+           value is the rule which generated the result.
+           If no temperature could be found in the schedule (e.g. all
+           rules evaluate to Ignore()), None is returned."""
 
         room = self.cfg["rooms"][room_name]
 
@@ -520,7 +508,7 @@ class Heaty(appapi.AppDaemon):
                 if self.cfg["debug"]:
                     self.log("--- [{}] Aborting scheduling due to Break()."
                              .format(room["friendly_name"]))
-                return
+                return None
 
             if isinstance(result, expr.Ignore):
                 # skip this rule
@@ -532,12 +520,12 @@ class Heaty(appapi.AppDaemon):
             result_sum += result
 
             if isinstance(result_sum, expr.Result):
-                return result_sum.temp
+                return result_sum.temp, rule
 
     def set_scheduled_temp(self, room_name, force_resend=False):
-        """Sets the temperature that is configured for the current time
-           in the given room. If the master switch is turned off,
-           this won't do anything.
+        """Sets the temperature that is configured for the current
+           date and time in the given room. If the master switch is
+           turned off, this won't do anything.
            If force_resend is True, and the temperature didn't
            change, it is sent to the thermostats anyway.
            In case of an open window, temperature is cached and not sent."""
@@ -548,12 +536,24 @@ class Heaty(appapi.AppDaemon):
            room.get("reschedule_timer"):
             return
 
-        temp = self.get_scheduled_temp(room_name)
-        if temp is None:
+        result = self.get_scheduled_temp(room_name)
+        if result is None:
             if self.cfg["debug"]:
                 self.log("--- [{}] No suitable temperature found in schedule."
                          .format(room["friendly_name"]))
             return
+
+        temp, rule = result
+        if temp == room.get("latest_schedule_temp") and \
+           rule is room.get("latest_schedule_rule") and \
+           not force_resend:
+            # temp and rule didn't change, what means that the
+            # re-scheduling wasn't necessary and was e.g. caused
+            # by a daily timer which doesn't count for today
+            return
+
+        room["latest_schedule_temp"] = temp
+        room["latest_schedule_rule"] = rule
 
         if self.get_open_windows(room_name):
             self.log("--- [{}] Caching and not setting temperature due "
@@ -678,6 +678,21 @@ class Heaty(appapi.AppDaemon):
                      .format(room["friendly_name"]))
         self.cancel_timer(timer)
         return True
+
+    def cancel_set_temp_timer(self, room_name, therm_name):
+        """Cancel the set temp timer for given room and thermostat name,
+           if one exists."""
+        room = self.cfg["rooms"][room_name]
+        therm = room["thermostats"][therm_name]
+        try:
+            timer = therm.pop("resend_timer")
+        except KeyError:
+            pass
+        else:
+            if self.cfg["debug"]:
+                self.log("--- [{}] Cancelling retry timer for {}."
+                         .format(room["friendly_name"], therm_name))
+            self.cancel_timer(timer)
 
     def check_for_open_window(self, room_name):
         """Checks whether a window is open in the given room and,
