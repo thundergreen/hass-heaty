@@ -174,6 +174,11 @@ class Heaty(appapi.AppDaemon):
             del room["reschedule_timer"]
         except KeyError:
             pass
+
+        # invalidate cached temp/rule
+        room["current_schedule_temp"] = None
+        room["current_schedule_rule"] = None
+
         self.set_scheduled_temp(room_name)
 
     def reschedule_event_cb(self, event, data, kwargs):
@@ -196,10 +201,10 @@ class Heaty(appapi.AppDaemon):
         else:
             room_names = self.cfg["rooms"].keys()
 
+        self.log("--> Re-schedule event received for rooms: {}"
+                 .format(", ".join(room_names)))
+
         for room_name in room_names:
-            room = self.cfg["rooms"][room_name]
-            self.log("--- [{}] Re-schedule event received."
-                     .format(room["friendly_name"]))
             # delay for 6 seconds to avoid re-scheduling multiple
             # times if multiple events come in shortly
             self.update_reschedule_timer(room_name, reschedule_delay=0.1,
@@ -332,13 +337,16 @@ class Heaty(appapi.AppDaemon):
         and temperature is set to self.cfg["off_temp"] everywhere."""
 
         self.log("--> Master switch turned {}.".format(new))
-        for room_name in self.cfg["rooms"]:
+        for room_name, room in self.cfg["rooms"].items():
             if new == "on":
                 self.set_scheduled_temp(room_name)
             else:
                 self.cancel_reschedule_timer(room_name)
                 self.set_temp(room_name, self.cfg["off_temp"],
                               scheduled=False)
+                # invalidate cached temp/rule
+                room["current_schedule_temp"] = None
+                room["current_schedule_rule"] = None
 
     def window_sensor_cb(self, entity, attr, old, new, kwargs):
         """Is called when a window sensor's state has changed.
